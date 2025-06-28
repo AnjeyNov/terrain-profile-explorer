@@ -1,0 +1,16 @@
+body,
+html {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+}
+
+#container {
+    width: 100vw;
+    height: 70vh;
+}
+
+#profile {
+    width: 100vw;
+    height: 30vh;
+}
