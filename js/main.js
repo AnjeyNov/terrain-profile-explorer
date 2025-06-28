@@ -1,172 +1,215 @@
 import * as THREE from 'three';
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-const container = document.getElementById('container');
-const scene = new THREE.Scene();
+import { AppConfig, getConfig } from './config/AppConfig.js';
 
-const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(0, 50, 100);
+import { Scene } from './core/Scene.js';
+import { Camera } from './core/Camera.js';
+import { Renderer } from './core/Renderer.js';
+import { Controls } from './core/Controls.js';
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(container.clientWidth, container.clientHeight);
-container.appendChild(renderer.domElement);
+import { TerrainGeometry } from './terrain/TerrainGeometry.js';
+import { TerrainMaterial } from './terrain/TerrainMaterial.js';
+import { TerrainTextures } from './terrain/TerrainTextures.js';
+import { DEMLoader } from './terrain/DEMLoader.js';
 
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.minPolarAngle = 0;
-controls.maxPolarAngle = Math.PI * 70 / 180;
+import { ProfileChart } from './ui/ProfileChart.js';
+import { InfoPanel } from './ui/InfoPanel.js';
 
-const size = 100; // размер плоскости в "модельных" единицах
+import { Coordinates } from './utils/Coordinates.js';
+import { MathUtils } from './utils/MathUtils.js';
 
-// Плоскость (плоская, без высот)
-const planeGeometry = new THREE.PlaneGeometry(size, size, 1, 1);
-const planeMaterial = new THREE.MeshStandardMaterial({ color: 0x777777 });
-const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.rotation.x = -Math.PI / 2;
-scene.add(plane);
+class TerrainExplorer {
+  constructor() {
+    this.clickPoints = [];
+    this.time = 0;
+    
+    this.init();
+  }
 
-// Canvas и текстура для WMTS тайла
-const wmtsCanvas = document.createElement('canvas');
-wmtsCanvas.width = 256;
-wmtsCanvas.height = 256;
-const wmtsCtx = wmtsCanvas.getContext('2d');
-const wmtsTexture = new THREE.CanvasTexture(wmtsCanvas);
-wmtsTexture.wrapS = THREE.ClampToEdgeWrapping;
-wmtsTexture.wrapT = THREE.ClampToEdgeWrapping;
+  async init() {
+    this.setupCore();
+    this.setupTerrain();
+    this.setupUI();
+    this.setupLighting();
+    this.setupEventListeners();
 
-const wmtsMaterial = new THREE.MeshBasicMaterial({ map: wmtsTexture, transparent: true });
-const wmtsPlane = new THREE.Mesh(new THREE.PlaneGeometry(size, size), wmtsMaterial);
-wmtsPlane.rotation.x = -Math.PI / 2;
-wmtsPlane.position.y = 0.05; // чуть выше плоскости
-scene.add(wmtsPlane);
+    await this.loadInitialTerrain();
 
-// Токен из GetCapabilities (замени на свой)
-const TOKEN = 'ImV1cm9nZW9ncmFwaGljc19yZWdpc3RlcmVkXzk2MDMzOSI.GzmYAw.gM461Rbrkrp_X3aa18uB1_Ri84o';
+    this.animate();
+  }
 
-// Преобразование модели (x,z) в широту/долготу (WGS84)
-// Предполагаем, что плоскость размером size=100 покрывает весь мир:
-// по оси X: от -size/2 (долгота -180) до +size/2 (долгота +180)
-// по оси Z: от -size/2 (широта -85) до +size/2 (широта +85)
-// Подстроить можно под свои данные!
+  setupCore() {
+    const container = document.querySelector('#container');
+    
+    this.scene = new Scene();
+    this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
+    this.renderer = new Renderer(container, getConfig('renderer'));
+    this.controls = new Controls(this.camera.getCamera(), this.renderer.getRenderer());
+  }
 
-function modelToLonLat(x, z) {
-    const lon = (x / (size / 2)) * 180;
-    const lat = (z / (size / 2)) * 85; // примерно
-    return { lon, lat };
-}
+  setupTerrain() {
+    this.terrainTextures = new TerrainTextures();
+    const textures = this.terrainTextures.getTextures();
+    const normalMaps = this.terrainTextures.getNormalMaps();
 
-// Функции для преобразования широты/долготы в WMTS номера тайлов (TILECOL, TILEROW, TILEMATRIX)
-// В WMTS используется проекция EPSG:3857 (Web Mercator)
-// Вспомогательные функции:
+    this.terrainGeometry = new TerrainGeometry(
+      getConfig('terrain.size'), 
+      getConfig('terrain.tileRes')
+    );
 
-function lonLatToMercator(lon, lat) {
-    const x = lon * 20037508.34 / 180;
-    let y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
-    y = y * 20037508.34 / 180;
-    return { x, y };
-}
+    this.terrainMaterial = new TerrainMaterial(textures, normalMaps, AppConfig.elevation);
+    
+    this.terrainMesh = new THREE.Mesh(
+      this.terrainGeometry.getGeometry(),
+      this.terrainMaterial.getMaterial()
+    );
 
-// Получить номер тайла X и Y по координатам в EPSG:3857 и уровню z
-function mercatorToTileXY(x, y, zoom) {
-    const tileSize = 256;
-    const initialResolution = 2 * Math.PI * 6378137 / tileSize;
-    const originShift = 2 * Math.PI * 6378137 / 2.0;
+    this.scene.add('terrain', this.terrainMesh);
+    this.demLoader = new DEMLoader();
+  }
 
-    const resolution = initialResolution / Math.pow(2, zoom);
-    const tileX = Math.floor((x + originShift) / (resolution * tileSize));
-    const tileY = Math.floor((originShift - y) / (resolution * tileSize));
+  setupUI() {
+    const chartConfig = getConfig('ui.profileChart');
+    this.profileChart = new ProfileChart('profile', chartConfig.width, chartConfig.height);
+    this.infoPanel = new InfoPanel('tilt-indicator');
+  }
 
-    return { tileX, tileY };
-}
+  setupLighting() {
+    const lightingConfig = getConfig('lighting');
+    
+    const directionalLight = new THREE.DirectionalLight(
+      lightingConfig.directional.color, 
+      lightingConfig.directional.intensity
+    );
+    directionalLight.position.set(
+      lightingConfig.directional.position.x,
+      lightingConfig.directional.position.y,
+      lightingConfig.directional.position.z
+    );
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = getConfig('renderer.shadowMapSize');
+    directionalLight.shadow.mapSize.height = getConfig('renderer.shadowMapSize');
+    this.scene.add('directionalLight', directionalLight);
 
-const matrixHeights = {
-    0: 1, 1: 2, 2: 4, 3: 8, 4: 16, 5: 32, 6: 64, 7: 128, 8: 256,
-    9: 512, 10: 1024, 11: 2048, 12: 4096, 13: 8192, 14: 16384,
-    // дальше по необходимости
-};
+    const ambientLight = new THREE.AmbientLight(
+      lightingConfig.ambient.color, 
+      lightingConfig.ambient.intensity
+    );
+    this.scene.add('ambientLight', ambientLight);
+  }
 
-function getWMTSUrl(tileX, tileY, zoom) {
-    const tileMatrix = zoom.toString().padStart(2, '0');
-    const matrixHeight = matrixHeights[zoom];
-    const invertedRow = matrixHeight - 1 - tileY;
+  setupEventListeners() {
+    const canvas = this.renderer.getCanvas();
 
-    const url =
-        `https://www.mapsforeurope.org/maps/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0` +
-        `&LAYER=eurodem&TILEMATRIXSET=euro_3857&FORMAT=image/png` +
-        `&TILEMATRIX=${tileMatrix}&TILEROW=${invertedRow}&TILECOL=${tileX}` +
-        `&token=${TOKEN}`;
+    canvas.addEventListener('mousemove', (ev) => this.onMouseMove(ev));
+    
+    canvas.addEventListener('click', (ev) => this.onClick(ev));
+    
+    window.addEventListener('resize', () => this.onResize());
+  }
 
-    console.log('Запрос WMTS:', url);
-
-    return url;
-}
-
-// Загрузка и отрисовка WMTS тайла в canvas
-async function loadWMTS(tileX, tileY, zoom) {
-    const url = getWMTSUrl(tileX, tileY, zoom);
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Ошибка загрузки тайла'));
-        img.src = url;
-    });
-}
-
-// При клике по плоскости обновляем текстуру WMTS
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-const WMTS_ZOOM_LEVEL = 5; // выбери подходящий уровень (0..24)
-
-renderer.domElement.addEventListener('click', async (event) => {
-    mouse.x = (event.clientX / container.clientWidth) * 2 - 1;
-    mouse.y = - (event.clientY / container.clientHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(plane);
-
-    if (intersects.length > 0) {
-        const point = intersects[0].point;
-        console.log('Клик по модели:', point);
-
-        // Переводим координаты модели в долготу/широту
-        const { lon, lat } = modelToLonLat(point.x, point.z);
-        console.log(`Географические координаты: долгота=${lon.toFixed(5)}, широта=${lat.toFixed(5)}`);
-
-        // В EPSG:3857
-        const merc = lonLatToMercator(lon, lat);
-        console.log(`Mercator (x,y): ${merc.x.toFixed(2)}, ${merc.y.toFixed(2)}`);
-
-        // Получаем тайл
-        const { tileX, tileY } = mercatorToTileXY(merc.x, merc.y, WMTS_ZOOM_LEVEL);
-        console.log(`WMTS Tile X=${tileX}, Y=${tileY}, Zoom=${WMTS_ZOOM_LEVEL}`);
-
-        try {
-            const img = await loadWMTS(tileX, tileY, WMTS_ZOOM_LEVEL);
-            wmtsCtx.clearRect(0, 0, wmtsCanvas.width, wmtsCanvas.height);
-            wmtsCtx.drawImage(img, 0, 0, wmtsCanvas.width, wmtsCanvas.height);
-            wmtsTexture.needsUpdate = true;
-        } catch (e) {
-            console.error('Ошибка загрузки WMTS тайла:', e);
-        }
+  async loadInitialTerrain() {
+    try {
+      await this.demLoader.applyDEMToGeometry(
+        this.terrainGeometry.getGeometry(),
+        0, 0,
+        getConfig('terrain.size'),
+        getConfig('terrain.exaggeration')
+      );
+    } catch (error) {
+      console.error('Error loading initial terrain:', error);
     }
-});
+  }
 
-// Свет и анимация
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(10, 50, 50);
-scene.add(light);
-
-function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-    // --- Индикатор наклона ---
-    const indicator = document.getElementById('tilt-indicator');
-    if (indicator) {
-        // polarAngle: 0 — строго вниз, PI/2 — горизонтально
-        const deg = (controls.getPolarAngle() * 180 / Math.PI).toFixed(1);
-        indicator.textContent = `Наклон: ${deg}°`;
+  onMouseMove(ev) {
+    const hit = this.getHitPoint(ev);
+    
+    if (hit) {
+      const { x: mx, z: mz, y: my } = hit.point;
+      const { lon, lat } = Coordinates.modelToLonLat(mx, mz, getConfig('terrain.size'));
+      const height = my * 1000; 
+      
+      this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
+    } else {
+      this.infoPanel.clear();
     }
+  }
+
+  async onClick(ev) {
+    const hit = this.getHitPoint(ev);
+    if (!hit) return;
+
+    const { x: mx, z: mz } = hit.point;
+    const { lon, lat } = Coordinates.modelToLonLat(mx, mz, getConfig('terrain.size'));
+    
+    this.clickPoints.push({ mx, mz, lon, lat });
+
+    const marker = TerrainGeometry.createMarkerPoint();
+    marker.position.copy(hit.point);
+    this.scene.add(`marker_${this.clickPoints.length}`, marker);
+
+    if (this.clickPoints.length === 2) {
+      await this.createProfile();
+      this.clickPoints = [];
+    }
+  }
+
+  getHitPoint(ev) {
+    const canvas = this.renderer.getCanvas();
+    const mouse = new THREE.Vector2();
+    
+    mouse.x = (ev.clientX / canvas.clientWidth) * 2 - 1;
+    mouse.y = -(ev.clientY / canvas.clientHeight) * 2 + 1;
+    
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, this.camera.getCamera());
+    
+    return raycaster.intersectObject(this.terrainMesh)[0];
+  }
+
+  async createProfile() {
+    try {
+      const profile = await this.demLoader.createHeightProfile(
+        this.clickPoints[0],
+        this.clickPoints[1],
+        getConfig('profile.samples')
+      );
+      
+      this.profileChart.drawProfile(profile);
+      this.infoPanel.updateProfileInfo(this.clickPoints[0], this.clickPoints[1]);
+      
+      this.scene.remove('marker_1');
+      this.scene.remove('marker_2');
+      
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      this.infoPanel.showMessage('Ошибка при создании профиля', 'error');
+    }
+  }
+
+  onResize() {
+    this.camera.updateAspect();
+    this.renderer.resize();
+  }
+
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    this.time += 1 / getConfig('animation.frameRate');
+    this.terrainMaterial.updateTime(this.time * getConfig('animation.waterSpeed'));
+    this.controls.update();
+    this.renderer.render(this.scene.getScene(), this.camera.getCamera());
+  }
+
+  getStats() {
+    return {
+      cacheStats: this.demLoader.getCacheStats(),
+      sceneObjects: this.scene.getAllObjects().length,
+      clickPoints: this.clickPoints.length,
+      config: AppConfig
+    };
+  }
 }
-animate();
+
+document.addEventListener('DOMContentLoaded', () => {
+  new TerrainExplorer();
+}); 
