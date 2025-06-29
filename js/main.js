@@ -14,6 +14,7 @@ import { DEMLoader } from './terrain/DEMLoader.js';
 
 import { ProfileChart } from './ui/ProfileChart.js';
 import { InfoPanel } from './ui/InfoPanel.js';
+import { EuropeMapSelector } from './ui/EuropeMapSelector.js';
 
 import { Coordinates } from './utils/Coordinates.js';
 import { MathUtils } from './utils/MathUtils.js';
@@ -28,6 +29,7 @@ class TerrainExplorer {
     this.zoom = 40; // ширина области в градусах (чем меньше — тем "ближе")
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
+    this.europeMapSelector = null;
     
     this.init();
   }
@@ -38,10 +40,8 @@ class TerrainExplorer {
     this.setupUI();
     this.setupLighting();
     this.setupEventListeners();
-
-    await this.updateTerrain();
-
-    this.animate();
+    this.setupRegionSelector();
+    await this.showRegionSelector();
   }
 
   setupCore() {
@@ -117,6 +117,42 @@ class TerrainExplorer {
     canvas.addEventListener('click', (ev) => this.onClick(ev));
     
     window.addEventListener('resize', () => this.onResize());
+  }
+
+  setupRegionSelector() {
+    this.europeMapSelector = new EuropeMapSelector('europe-map-canvas');
+    
+    document.getElementById('select-region-btn').addEventListener('click', () => {
+      this.showRegionSelector();
+    });
+    
+    document.getElementById('cancel-region').addEventListener('click', () => {
+      this.europeMapSelector.hide();
+    });
+    
+    document.getElementById('confirm-region').addEventListener('click', () => {
+      this.loadSelectedRegion();
+    });
+  }
+
+  async showRegionSelector() {
+    this.europeMapSelector.show();
+  }
+
+  async loadSelectedRegion() {
+    const selectedRegion = this.europeMapSelector.getSelectedRegion();
+    if (!selectedRegion) {
+      alert('Пожалуйста, выберите область на карте');
+      return;
+    }
+
+    this.centerLon = selectedRegion.centerLon;
+    this.centerLat = selectedRegion.centerLat;
+    this.zoom = selectedRegion.zoom;
+
+    this.europeMapSelector.hide();
+    await this.updateTerrain();
+    this.animate();
   }
 
   async updateTerrain() {

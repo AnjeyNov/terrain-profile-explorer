@@ -53,6 +53,43 @@
         <div>• Кликните в двух точках на карте для создания профиля</div>
         <div>• Используйте мышь для вращения и масштабирования</div>
         <div>• Профиль высоты отобразится внизу</div>
+        <div>• Нажмите "Выбрать область" для смены региона</div>
+    </div>
+
+    <button id="select-region-btn" 
+            style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; 
+                   background: #3b82f6; color: white; border: none; padding: 8px 16px; 
+                   border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; 
+                   cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        Выбрать область
+    </button>
+
+    <div id="region-selector-modal" 
+         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                background: rgba(0,0,0,0.8); z-index: 2000; display: flex; 
+                align-items: center; justify-content: center;">
+        <div style="background: white; border-radius: 12px; padding: 24px; 
+                    max-width: 800px; max-height: 90vh; overflow: auto;">
+            <h2 style="margin: 0 0 20px 0; color: #374151; font-family: Arial, sans-serif;">
+                Выберите область Европы
+            </h2>
+            <div id="europe-map" style="width: 700px; height: 500px; border: 2px solid #e5e7eb; 
+                                       border-radius: 8px; position: relative; background: #f8fafc;">
+                <canvas id="europe-map-canvas" width="700" height="500"></canvas>
+            </div>
+            <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end;">
+                <button id="cancel-region" 
+                        style="background: #6b7280; color: white; border: none; padding: 8px 16px; 
+                               border-radius: 6px; font-family: Arial, sans-serif; cursor: pointer;">
+                    Отмена
+                </button>
+                <button id="confirm-region" 
+                        style="background: #10b981; color: white; border: none; padding: 8px 16px; 
+                               border-radius: 6px; font-family: Arial, sans-serif; cursor: pointer;">
+                    Загрузить область
+                </button>
+            </div>
+        </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
