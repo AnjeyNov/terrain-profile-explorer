@@ -77,7 +77,7 @@ class TerrainExplorer {
 
   setupUI() {
     const chartConfig = getConfig('ui.profileChart');
-    this.profileChart = new ProfileChart('profile', chartConfig.width, chartConfig.height);
+    this.profileChart = new ProfileChart('profile-chart', chartConfig.width, chartConfig.height);
     this.infoPanel = new InfoPanel('tilt-indicator');
   }
 
