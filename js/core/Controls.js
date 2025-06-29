@@ -14,7 +14,7 @@ export class Controls {
     controls.dampingFactor = 0.05;
     
     controls.minPolarAngle = 0;
-    controls.maxPolarAngle = Math.PI * 0.7; // 70 градусов
+    controls.maxPolarAngle = Math.PI / 3;
     
     controls.minDistance = 10;
     controls.maxDistance = 500;

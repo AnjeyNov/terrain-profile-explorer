@@ -182,9 +182,11 @@ const container = document.querySelector('#container');
 
   onWheel(ev) {
     ev.preventDefault();
-    if (ev.deltaY < 0) this.zoom *= 0.9;
-    else this.zoom *= 1.1;
-    this.updateTerrain();
+    // Только масштабируем камеру, не обновляем рельеф
+    // if (ev.deltaY < 0) this.zoom *= 0.9;
+    // else this.zoom *= 1.1;
+    // this.updateTerrain();
+    // OrbitControls сам обрабатывает zoom
   }
 
   async onClick(ev) {

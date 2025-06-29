@@ -4,22 +4,18 @@ export class EuropeMapSelector {
     this.ctx    = this.canvas.getContext('2d');
     this.zoom   = 4;
 
-    // Границы «окна» по долготе/широте (без Гренландии и Африки)
     this.europeBounds = {
       minLon: -25, maxLon: 45,
       minLat:  36, maxLat: 60
     };
 
-    // В конструкторе замените границы на такие:
-this.europeBounds = {
-  minLon: -25,
-  maxLon:  45,
-  minLat:  36,   // по-прежнему юг Испании
-  maxLat:  65    // теперь до 70° N — Швеция в кадре
-};
+    this.europeBounds = {
+      minLon: -25,
+      maxLon:  45,
+      minLat:  36,  
+      maxLat:  65    
+    };
 
-
-    // Будем запоминать самый «левый/верхний» тайл, чтобы сдвигать всё влево/вверх
     this.originTileX = 0;
     this.originTileY = 0;
 
@@ -44,7 +40,6 @@ this.europeBounds = {
     this.loadMapTiles();
   }
 
-  // Преобразование lon/lat → глобальные пиксели Web-Mercator при данном this.zoom
   lonLatToGlobalPixel(lon, lat) {
     const z2 = Math.pow(2, this.zoom);
     const tileSize = 256;
@@ -67,9 +62,7 @@ this.europeBounds = {
     };
   }
 
-  // Разворот pixel → lon/lat нужен только для выбора области
   pixelToLonLat(px, py) {
-    // вычислим глобальный пиксель
     const gx = px + this.originTileX * 256;
     const gy = py + this.originTileY * 256;
 
@@ -77,14 +70,12 @@ this.europeBounds = {
     const tileSize = 256;
     const lon = gx / (tileSize * z2) * 360 - 180;
 
-    // обратная формула Меркатора:
     const n = Math.PI - 2 * Math.PI * gy / (tileSize * z2);
     const lat = (180 / Math.PI) * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
 
     return { lon, lat };
   }
 
-  // Преобразование lon/lat → целочисленные координаты тайла OSM
   lonLatToTileXY(lon, lat) {
     const n = Math.pow(2, this.zoom);
     const xtile = Math.floor((lon + 180) / 360 * n);
@@ -105,7 +96,6 @@ this.europeBounds = {
 
     for (let ix = 0; ix < tilesX; ix++) {
       for (let iy = 0; iy < tilesY; iy++) {
-        // точка внутри «окна»:
         const lon = this.europeBounds.minLon
                   + (ix + 0.5) * (this.europeBounds.maxLon - this.europeBounds.minLon) / tilesX;
         const lat = this.europeBounds.maxLat
@@ -168,7 +158,6 @@ this.europeBounds = {
       this.ctx.lineWidth = 3;
       this.ctx.stroke();
 
-      // подпись
       this.ctx.fillStyle   = '#ef4444';
       this.ctx.strokeStyle = '#ffffff';
       this.ctx.lineWidth   = 3;
