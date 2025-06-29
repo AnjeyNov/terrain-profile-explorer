@@ -1,23 +1,11 @@
 import * as THREE from 'three';
 
 export class TerrainGeometry {
-  constructor(size = 100, resolution = 256) {
+  constructor(size, res) {
     this.size = size;
-    this.resolution = resolution;
-    this.geometry = this.createGeometry();
-  }
-
-  createGeometry() {
-    const geometry = new THREE.PlaneGeometry(
-      this.size, 
-      this.size, 
-      this.resolution - 1, 
-      this.resolution - 1
-    );
-    
-    geometry.rotateX(-Math.PI / 2);
-    
-    return geometry;
+    this.res = res;
+    this.geometry = new THREE.PlaneGeometry(size, size, res - 1, res - 1);
+    this.geometry.rotateX(-Math.PI / 2);
   }
 
   getGeometry() {
@@ -42,13 +30,14 @@ export class TerrainGeometry {
   }
 
   getResolution() {
-    return this.resolution;
+    return this.res;
   }
 
-  static createMarkerPoint(size = 0.6) {
-    const geometry = new THREE.SphereGeometry(size, 12, 12);
-    const material = new THREE.MeshBasicMaterial({ color: 0xff4444 });
-    return new THREE.Mesh(geometry, material);
+  static createMarkerPoint() {
+    return new THREE.Mesh(
+      new THREE.SphereGeometry(1.5, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
   }
 
   static createProfileLine(points, color = 0xff6600) {

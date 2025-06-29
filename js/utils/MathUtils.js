@@ -1,4 +1,3 @@
-
 export class MathUtils {
 
   static clamp(value, min, max) {
@@ -9,20 +8,15 @@ export class MathUtils {
     return a + (b - a) * t;
   }
 
-  static calculateSlope(heights, row, col, tileRes) {
-    if (col <= 0 || col >= tileRes - 1 || row <= 0 || row >= tileRes - 1) {
-      return 0;
-    }
-
-    const left = heights[row * tileRes + (col - 1)];
-    const right = heights[row * tileRes + (col + 1)];
-    const top = heights[(row - 1) * tileRes + col];
-    const bottom = heights[(row + 1) * tileRes + col];
-
-    const dx = (right - left) / 2;
-    const dz = (bottom - top) / 2;
-    
-    return Math.sqrt(dx * dx + dz * dz) / 1000;
+  static calculateSlope(heights, row, col, tSize) {
+    const get = (r, c) => {
+      r = Math.max(0, Math.min(tSize - 1, r));
+      c = Math.max(0, Math.min(tSize - 1, c));
+      return heights[r * tSize + c];
+    };
+    const dzdx = (get(row, col + 1) - get(row, col - 1)) / 2;
+    const dzdy = (get(row + 1, col) - get(row - 1, col)) / 2;
+    return Math.sqrt(dzdx * dzdx + dzdy * dzdy);
   }
 
   static interpolateArray(start, end, count) {

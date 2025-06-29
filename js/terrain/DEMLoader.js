@@ -1,5 +1,6 @@
 import { Coordinates } from '../utils/Coordinates.js';
 import { MathUtils } from '../utils/MathUtils.js';
+import * as THREE from 'three';
 
 export class DEMLoader {
   constructor() {
@@ -55,7 +56,7 @@ export class DEMLoader {
     return heights[idx];
   }
 
-  async applyDEMToGeometry(geometry, mx, mz, size = 100, exaggeration = 3.0) {
+  async applyDEMToGeometry(geometry, centerLon, centerLat, zoom, size = 100, exaggeration = 3.0) {
     const pos = geometry.attributes.position;
     const heightsAttr = new Float32Array(pos.count);
     const slopesAttr = new Float32Array(pos.count);
@@ -68,7 +69,10 @@ export class DEMLoader {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const zPos = pos.getZ(i);
-      const { lon, lat } = Coordinates.modelToLonLat(x, zPos, size);
+      const relX = x / size;
+      const relZ = zPos / size;
+      const lon = centerLon + relX * zoom;
+      const lat = centerLat + relZ * zoom * (37/55);
       const { x: tx, y: ty } = Coordinates.mercToTileXY(
         Coordinates.lonLatToMerc(lon, lat).x,
         Coordinates.lonLatToMerc(lon, lat).y,

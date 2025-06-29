@@ -22,6 +22,12 @@ class TerrainExplorer {
   constructor() {
     this.clickPoints = [];
     this.time = 0;
+    // Европа: долгота -25..45, широта 35..72
+    this.centerLon = 10; // центр Европы
+    this.centerLat = 54;
+    this.zoom = 40; // ширина области в градусах (чем меньше — тем "ближе")
+    this.isDragging = false;
+    this.lastMouse = { x: 0, y: 0 };
     
     this.init();
   }
@@ -33,7 +39,7 @@ class TerrainExplorer {
     this.setupLighting();
     this.setupEventListeners();
 
-    await this.loadInitialTerrain();
+    await this.updateTerrain();
 
     this.animate();
   }
@@ -45,6 +51,7 @@ class TerrainExplorer {
     this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
     this.renderer = new Renderer(container, getConfig('renderer'));
     this.controls = new Controls(this.camera.getCamera(), this.renderer.getRenderer());
+    this.controls.setPanEnabled(false); // отключаем стандартный pan
   }
 
   setupTerrain() {
@@ -102,45 +109,87 @@ class TerrainExplorer {
     const canvas = this.renderer.getCanvas();
 
     canvas.addEventListener('mousemove', (ev) => this.onMouseMove(ev));
+    canvas.addEventListener('mousedown', (ev) => this.onMouseDown(ev));
+    canvas.addEventListener('mouseup', (ev) => this.onMouseUp(ev));
+    canvas.addEventListener('mouseleave', (ev) => this.onMouseUp(ev));
+    canvas.addEventListener('wheel', (ev) => this.onWheel(ev));
     
     canvas.addEventListener('click', (ev) => this.onClick(ev));
     
     window.addEventListener('resize', () => this.onResize());
   }
 
-  async loadInitialTerrain() {
-    try {
-      await this.demLoader.applyDEMToGeometry(
-        this.terrainGeometry.getGeometry(),
-        0, 0,
-        getConfig('terrain.size'),
-        getConfig('terrain.exaggeration')
-      );
-    } catch (error) {
-      console.error('Error loading initial terrain:', error);
-    }
+  async updateTerrain() {
+    // Ограничиваем центр и zoom в пределах Европы
+    this.centerLon = Math.max(-25, Math.min(45, this.centerLon));
+    this.centerLat = Math.max(35, Math.min(72, this.centerLat));
+    this.zoom = Math.max(2, Math.min(70, this.zoom));
+    await this.demLoader.applyDEMToGeometry(
+      this.terrainGeometry.getGeometry(),
+      this.centerLon,
+      this.centerLat,
+      this.zoom,
+      getConfig('terrain.size'),
+      getConfig('terrain.exaggeration')
+    );
   }
 
   onMouseMove(ev) {
-    const hit = this.getHitPoint(ev);
-    
-    if (hit) {
-      const { x: mx, z: mz, y: my } = hit.point;
-      const { lon, lat } = Coordinates.modelToLonLat(mx, mz, getConfig('terrain.size'));
-      const height = my * 1000; 
-      
-      this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
+    if (this.isDragging) {
+      const dx = ev.clientX - this.lastMouse.x;
+      const dy = ev.clientY - this.lastMouse.y;
+      // Чем больше zoom, тем "быстрее" карта двигается
+      this.centerLon -= dx * this.zoom / 600;
+      this.centerLat += dy * this.zoom / 600;
+      this.lastMouse = { x: ev.clientX, y: ev.clientY };
+      this.updateTerrain();
     } else {
-      this.infoPanel.clear();
+      const hit = this.getHitPoint(ev);
+      
+      if (hit) {
+        const { x: mx, z: mz, y: my } = hit.point;
+        // Преобразуем mx/mz в lon/lat относительно центра и zoom
+        const relX = mx / getConfig('terrain.size');
+        const relZ = mz / getConfig('terrain.size');
+        const lon = this.centerLon + relX * this.zoom;
+        const lat = this.centerLat + relZ * this.zoom * (37/55);
+        const height = my * 1000; 
+        
+        this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
+      } else {
+        this.infoPanel.clear();
+      }
     }
   }
 
+  onMouseDown(ev) {
+    this.isDragging = true;
+    this.lastMouse = { x: ev.clientX, y: ev.clientY };
+    document.body.style.cursor = 'grabbing';
+  }
+
+  onMouseUp(ev) {
+    this.isDragging = false;
+    document.body.style.cursor = '';
+  }
+
+  onWheel(ev) {
+    ev.preventDefault();
+    if (ev.deltaY < 0) this.zoom *= 0.9;
+    else this.zoom *= 1.1;
+    this.updateTerrain();
+  }
+
   async onClick(ev) {
+    if (this.isDragging) return; // не ставим точки при drag
     const hit = this.getHitPoint(ev);
     if (!hit) return;
 
     const { x: mx, z: mz } = hit.point;
-    const { lon, lat } = Coordinates.modelToLonLat(mx, mz, getConfig('terrain.size'));
+    const relX = mx / getConfig('terrain.size');
+    const relZ = mz / getConfig('terrain.size');
+    const lon = this.centerLon + relX * this.zoom;
+    const lat = this.centerLat + relZ * this.zoom * (37/55);
     
     this.clickPoints.push({ mx, mz, lon, lat });
 

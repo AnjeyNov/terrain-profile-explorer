@@ -1,6 +1,6 @@
 export class InfoPanel {
-  constructor(elementId) {
-    this.element = document.getElementById(elementId);
+  constructor(id) {
+    this.el = document.getElementById(id);
     this.terrainConfig = {
       waterLevel: 0,
       mountainLevel: 1000,
@@ -8,21 +8,11 @@ export class InfoPanel {
     };
   }
 
-  updateTerrainInfo(hitPoint, lon, lat, height) {
-    if (!hitPoint) {
-      this.clear();
-      return;
-    }
-
-    const terrainType = this.getTerrainType(height);
-    
-    this.element.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 8px;">Информация о местности:</div>
-      <div>Высота: ${Math.round(height)} м</div>
-      <div>Тип: ${terrainType}</div>
-      <div>Координаты: ${lon.toFixed(2)}°, ${lat.toFixed(2)}°</div>
-      <div>X: ${hitPoint.x.toFixed(1)}, Y: ${hitPoint.y.toFixed(1)}, Z: ${hitPoint.z.toFixed(1)}</div>
-    `;
+  updateTerrainInfo(point, lon, lat, height) {
+    this.el.innerHTML =
+      `Долгота: ${lon.toFixed(4)}<br>` +
+      `Широта: ${lat.toFixed(4)}<br>` +
+      `Высота: ${height.toFixed(1)} м`;
   }
 
   getTerrainType(height) {
@@ -39,17 +29,11 @@ export class InfoPanel {
     }
   }
 
-  updateProfileInfo(point1, point2) {
-    if (!point1 || !point2) return;
-
-    const distance = this.calculateDistance(point1, point2);
-    
-    this.element.innerHTML = `
-      <div style="font-weight: bold; margin-bottom: 8px;">Профиль:</div>
-      <div>Точка 1: ${point1.lon.toFixed(2)}°, ${point1.lat.toFixed(2)}°</div>
-      <div>Точка 2: ${point2.lon.toFixed(2)}°, ${point2.lat.toFixed(2)}°</div>
-      <div>Расстояние: ${distance.toFixed(1)} км</div>
-    `;
+  updateProfileInfo(p1, p2) {
+    this.el.innerHTML =
+      `Профиль: <br>` +
+      `A (${p1.lon.toFixed(4)}, ${p1.lat.toFixed(4)})<br>` +
+      `B (${p2.lon.toFixed(4)}, ${p2.lat.toFixed(4)})`;
   }
 
   calculateDistance(point1, point2) {
@@ -64,22 +48,11 @@ export class InfoPanel {
   }
 
   clear() {
-    this.element.innerHTML = '';
+    this.el.innerHTML = '';
   }
 
-  showMessage(message, type = 'info') {
-    const colors = {
-      info: '#007bff',
-      success: '#28a745',
-      warning: '#ffc107',
-      error: '#dc3545'
-    };
-
-    this.element.innerHTML = `
-      <div style="color: ${colors[type]}; font-weight: bold;">
-        ${message}
-      </div>
-    `;
+  showMessage(msg, type) {
+    this.el.innerHTML = msg;
   }
 
   updateTerrainConfig(config) {

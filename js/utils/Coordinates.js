@@ -1,20 +1,19 @@
+import * as THREE from 'three';
+
 export class Coordinates {
   static lonLatToMerc(lon, lat) {
-    const x = lon * 20037508.34 / 180;
-    let y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) * 20037508.34 / 180;
+    const R = 6378137;
+    const x = R * (lon * Math.PI / 180);
+    const y = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
     return { x, y };
   }
 
   static mercToTileXY(x, y, z) {
-    const t = 256;
-    const res0 = 2 * Math.PI * 6378137 / t;
-    const shift = 2 * Math.PI * 6378137 / 2;
-    const res = res0 / 2 ** z;
-    
-    return {
-      x: Math.floor((x + shift) / (res * t)),
-      y: Math.floor((shift - y) / (res * t)),
-    };
+    const origin = 2 * Math.PI * 6378137 / 2;
+    const res = (2 * Math.PI * 6378137) / (256 * Math.pow(2, z));
+    const px = (x + origin) / res;
+    const py = (origin - y) / res;
+    return { x: Math.floor(px / 256), y: Math.floor(py / 256) };
   }
 
   static modelToLonLat(mx, mz, size = 100) {
