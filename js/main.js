@@ -45,7 +45,7 @@ class TerrainExplorer {
   }
 
   setupCore() {
-    const container = document.querySelector('#container');
+const container = document.querySelector('#container');
     
     this.scene = new Scene();
     this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
@@ -219,7 +219,7 @@ class TerrainExplorer {
   async onClick(ev) {
     if (this.isDragging) return; // не ставим точки при drag
     const hit = this.getHitPoint(ev);
-    if (!hit) return;
+  if (!hit) return;
 
     const { x: mx, z: mz } = hit.point;
     const relX = mx / getConfig('terrain.size');
