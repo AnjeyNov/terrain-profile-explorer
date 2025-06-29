@@ -56,34 +56,49 @@ export class DEMLoader {
   }
 
   async applyDEMToGeometry(geometry, mx, mz, size = 100, exaggeration = 3.0) {
-    const { lon, lat } = Coordinates.modelToLonLat(mx, mz, size);
-    const { x, y } = Coordinates.lonLatToMerc(lon, lat);
-    const { x: tx, y: ty } = Coordinates.mercToTileXY(x, y, this.demZoom);
-    const heights = await this.loadTerrariumTile(this.demZoom, tx, ty);
-
     const pos = geometry.attributes.position;
     const heightsAttr = new Float32Array(pos.count);
     const slopesAttr = new Float32Array(pos.count);
-
+    const z = this.demZoom;
+    const tSize = 256;
+    const res0 = 2 * Math.PI * 6378137 / tSize;
+    const origin = 2 * Math.PI * 6378137 / 2;
+    const res = res0 / (2 ** z);
+    const localTileCache = new Map();
     for (let i = 0; i < pos.count; i++) {
-      const col = i % this.tileRes;
-      const row = Math.floor(i / this.tileRes);
-      const h = heights[row * this.tileRes + col];
+      const x = pos.getX(i);
+      const zPos = pos.getZ(i);
+      const { lon, lat } = Coordinates.modelToLonLat(x, zPos, size);
+      const { x: tx, y: ty } = Coordinates.mercToTileXY(
+        Coordinates.lonLatToMerc(lon, lat).x,
+        Coordinates.lonLatToMerc(lon, lat).y,
+        z
+      );
+      const tileKey = `${z}/${tx}/${ty}`;
+      let heights;
+      if (localTileCache.has(tileKey)) {
+        heights = localTileCache.get(tileKey);
+      } else {
+        heights = await this.loadTerrariumTile(z, tx, ty);
+        localTileCache.set(tileKey, heights);
+      }
+      const { x: mxMerc, y: myMerc } = Coordinates.lonLatToMerc(lon, lat);
+      const px = Math.floor((mxMerc + origin) / res) % tSize;
+      const py = Math.floor((origin - myMerc) / res) % tSize;
+      const idx = py * tSize + px;
+      const h = heights[idx];
       const height = (h * exaggeration) / 1000;
-
       pos.setY(i, height);
       heightsAttr[i] = height;
-
-      const slope = MathUtils.calculateSlope(heights, row, col, this.tileRes);
+      const col = px;
+      const row = py;
+      const slope = MathUtils.calculateSlope(heights, row, col, tSize);
       slopesAttr[i] = slope;
     }
-
     pos.needsUpdate = true;
     geometry.computeVertexNormals();
-
     geometry.setAttribute('height', new THREE.BufferAttribute(heightsAttr, 1));
     geometry.setAttribute('slope', new THREE.BufferAttribute(slopesAttr, 1));
-
     return { heights: heightsAttr, slopes: slopesAttr };
   }
 
