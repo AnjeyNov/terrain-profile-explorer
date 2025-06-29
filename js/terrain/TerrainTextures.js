@@ -121,4 +121,51 @@ export class TerrainTextures {
   getNormalMaps() {
     return this.normalMaps;
   }
+}
+
+export async function getOSMTexture(bounds, zoom, size = 1024) {
+
+  const tileSize = 256;
+
+  function lonLatToTileXY(lon, lat, z) {
+    const n = Math.pow(2, z);
+    const xtile = Math.floor((lon + 180) / 360 * n);
+    const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n);
+    return { x: xtile, y: ytile };
+  }
+  const topLeft = lonLatToTileXY(bounds.minLon, bounds.maxLat, zoom);
+  const bottomRight = lonLatToTileXY(bounds.maxLon, bounds.minLat, zoom);
+  const tilesX = bottomRight.x - topLeft.x + 1;
+  const tilesY = bottomRight.y - topLeft.y + 1;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = tilesX * tileSize;
+  canvas.height = tilesY * tileSize;
+  const ctx = canvas.getContext('2d');
+
+  const promises = [];
+  for (let x = 0; x < tilesX; x++) {
+    for (let y = 0; y < tilesY; y++) {
+      const tileX = topLeft.x + x;
+      const tileY = topLeft.y + y;
+      const url = `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`;
+      promises.push(
+        fetch(url)
+          .then(r => r.ok ? r.blob() : null)
+          .then(blob => blob ? createImageBitmap(blob) : null)
+          .then(img => { if (img) ctx.drawImage(img, x * tileSize, y * tileSize); })
+      );
+    }
+  }
+  await Promise.all(promises);
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = size;
+  outCanvas.height = size;
+  outCanvas.getContext('2d').drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+
+  const texture = new THREE.CanvasTexture(outCanvas);
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
 } 

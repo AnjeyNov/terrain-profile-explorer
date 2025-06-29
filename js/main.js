@@ -9,7 +9,7 @@ import { Controls } from './core/Controls.js';
 
 import { TerrainGeometry } from './terrain/TerrainGeometry.js';
 import { TerrainMaterial } from './terrain/TerrainMaterial.js';
-import { TerrainTextures } from './terrain/TerrainTextures.js';
+import { TerrainTextures, getOSMTexture } from './terrain/TerrainTextures.js';
 import { DEMLoader } from './terrain/DEMLoader.js';
 
 import { ProfileChart } from './ui/ProfileChart.js';
@@ -27,6 +27,7 @@ class TerrainExplorer {
     this.centerLon = 10; // центр Европы
     this.centerLat = 54;
     this.zoom = 40; // ширина области в градусах (чем меньше — тем "ближе")
+    this.osmTexture = null;
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
     this.europeMapSelector = null;
@@ -64,13 +65,13 @@ const container = document.querySelector('#container');
       getConfig('terrain.tileRes')
     );
 
-    this.terrainMaterial = new TerrainMaterial(textures, normalMaps, AppConfig.elevation);
+    this.terrainMaterial = new TerrainMaterial(textures, normalMaps, AppConfig.elevation, null);
     
     this.terrainMesh = new THREE.Mesh(
       this.terrainGeometry.getGeometry(),
       this.terrainMaterial.getMaterial()
     );
-
+    this.terrainMesh.rotation.y = Math.PI;
     this.scene.add('terrain', this.terrainMesh);
     this.demLoader = new DEMLoader();
   }
@@ -145,6 +146,18 @@ const container = document.querySelector('#container');
     this.zoom = selectedRegion.zoom;
 
     this.europeMapSelector.hide();
+    // --- OSM TEXTURE ---
+    const bounds = {
+      minLon: this.centerLon - this.zoom / 2,
+      maxLon: this.centerLon + this.zoom / 2,
+      minLat: this.centerLat - this.zoom / 2 * (37/55),
+      maxLat: this.centerLat + this.zoom / 2 * (37/55)
+    };
+    const osmZoom = 8; // Можно подобрать под размер области
+    this.infoPanel.showMessage('Загрузка карты OSM...', 'info');
+    this.osmTexture = await getOSMTexture(bounds, osmZoom, 1024);
+    this.terrainMaterial.setOSMMap(this.osmTexture);
+    this.infoPanel.clear();
     await this.updateTerrain();
     this.animate();
   }
@@ -165,14 +178,20 @@ const container = document.querySelector('#container');
   }
 
   onMouseMove(ev) {
-    // drag-перемещение отключено, только подсказка по высоте
     const hit = this.getHitPoint(ev);
     if (hit) {
       const { x: mx, z: mz, y: my } = hit.point;
-      const relX = mx / getConfig('terrain.size');
-      const relZ = mz / getConfig('terrain.size');
-      const lon = this.centerLon + relX * this.zoom;
-      const lat = this.centerLat + relZ * this.zoom * (37/55);
+      const bounds = {
+        minLon: this.centerLon - this.zoom / 2,
+        maxLon: this.centerLon + this.zoom / 2,
+        minLat: this.centerLat - this.zoom / 2 * (37/55),
+        maxLat: this.centerLat + this.zoom / 2 * (37/55)
+      };
+      const size = getConfig('terrain.size');
+      const u = 1.0 - (mx / size + 0.5);
+      const v = 1.0 - (mz / size + 0.5);
+      const lon = bounds.minLon + u * (bounds.maxLon - bounds.minLon);
+      const lat = bounds.minLat + v * (bounds.maxLat - bounds.minLat);
       const height = my * 1000;
       this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
     } else {

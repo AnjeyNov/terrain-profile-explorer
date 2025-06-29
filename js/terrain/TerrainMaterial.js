@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 
 export class TerrainMaterial {
-  constructor(textures, normalMaps, terrainConfig) {
+  constructor(textures, normalMaps, terrainConfig, osmMap = null) {
     this.textures = textures;
     this.normalMaps = normalMaps;
     this.config = terrainConfig;
+    this.osmMap = osmMap;
     this.material = this.createShaderMaterial();
   }
 
@@ -26,7 +27,9 @@ export class TerrainMaterial {
         snowLevel: { value: this.config.snowLevel / 1000 },
         slopeThreshold: { value: this.config.slopeThreshold },
         lightDirection: { value: new THREE.Vector3(0.5, 1, 0.5).normalize() },
-        time: { value: 0.0 }
+        time: { value: 0.0 },
+        osmMap: { value: this.osmMap },
+        useOsmMap: { value: !!this.osmMap }
       },
       vertexShader: this.getVertexShader(),
       fragmentShader: this.getFragmentShader()
@@ -61,6 +64,8 @@ export class TerrainMaterial {
       uniform float waterLevel, mountainLevel, snowLevel, slopeThreshold;
       uniform vec3 lightDirection;
       uniform float time;
+      uniform sampler2D osmMap;
+      uniform bool useOsmMap;
       
       varying float vHeight;
       varying float vSlope;
@@ -73,57 +78,44 @@ export class TerrainMaterial {
         vec3 normal;
         float reflection = 0.0;
         
-        // Выбираем текстуру на основе высоты и крутизны
-        if (vHeight <= waterLevel) {
-          // Вода с отражениями
-          color = texture2D(waterTexture, vUv + vec2(sin(time * 0.5) * 0.01, cos(time * 0.3) * 0.01));
-          normal = texture2D(waterNormalMap, vUv + vec2(sin(time * 0.2) * 0.02, cos(time * 0.4) * 0.02)).rgb * 2.0 - 1.0;
-          reflection = 0.8;
-        } else if (vHeight <= waterLevel + 50.0) {
-          // Песок
-          color = texture2D(sandTexture, vUv);
-          normal = texture2D(sandNormalMap, vUv).rgb * 2.0 - 1.0;
-          reflection = 0.1;
-        } else if (vSlope > slopeThreshold) {
-          // Скалы
-          color = texture2D(rockTexture, vUv);
-          normal = texture2D(rockNormalMap, vUv).rgb * 2.0 - 1.0;
-          reflection = 0.05;
-        } else if (vHeight >= snowLevel) {
-          // Снег
-          color = texture2D(snowTexture, vUv);
-          normal = texture2D(snowNormalMap, vUv).rgb * 2.0 - 1.0;
-          reflection = 0.3;
+        if (useOsmMap) {
+          color = texture2D(osmMap, vec2(1.0 - vUv.x, 1.0 - vUv.y));
+          normal = vec3(0.0, 1.0, 0.0);
         } else {
-          // Трава
-          color = texture2D(grassTexture, vUv);
-          normal = texture2D(grassNormalMap, vUv).rgb * 2.0 - 1.0;
-          reflection = 0.0;
+          if (vHeight <= waterLevel) {
+            color = texture2D(waterTexture, vUv + vec2(sin(time * 0.5) * 0.01, cos(time * 0.3) * 0.01));
+            normal = texture2D(waterNormalMap, vUv + vec2(sin(time * 0.2) * 0.02, cos(time * 0.4) * 0.02)).rgb * 2.0 - 1.0;
+            reflection = 0.8;
+          } else if (vHeight <= waterLevel + 50.0) {
+            color = texture2D(sandTexture, vUv);
+            normal = texture2D(sandNormalMap, vUv).rgb * 2.0 - 1.0;
+            reflection = 0.1;
+          } else if (vSlope > slopeThreshold) {
+            color = texture2D(rockTexture, vUv);
+            normal = texture2D(rockNormalMap, vUv).rgb * 2.0 - 1.0;
+            reflection = 0.05;
+          } else if (vHeight >= snowLevel) {
+            color = texture2D(snowTexture, vUv);
+            normal = texture2D(snowNormalMap, vUv).rgb * 2.0 - 1.0;
+            reflection = 0.3;
+          } else {
+            color = texture2D(grassTexture, vUv);
+            normal = texture2D(grassNormalMap, vUv).rgb * 2.0 - 1.0;
+            reflection = 0.0;
+          }
         }
         
-        // Улучшенное освещение
         vec3 lightDir = normalize(lightDirection);
         vec3 viewDir = normalize(-vPosition);
         vec3 halfDir = normalize(lightDir + viewDir);
-        
-        // Диффузное освещение
         float diffuse = max(dot(normalize(vNormal + normal), lightDir), 0.0);
-        
-        // Спекулярное освещение
         float specular = pow(max(dot(normalize(vNormal + normal), halfDir), 0.0), 32.0);
-        
-        // Фоновое освещение
         float ambient = 0.3;
-        
-        // Применяем освещение
         color.rgb *= (ambient + diffuse * 0.7 + specular * reflection);
-        
-        // Добавляем атмосферную перспективу для воды
-        if (vHeight <= waterLevel) {
+        if (!useOsmMap && vHeight <= waterLevel) {
           float depth = abs(vHeight - waterLevel) * 10.0;
           color.rgb = mix(color.rgb, vec3(0.1, 0.2, 0.4), min(depth, 0.8));
         }
-        
         gl_FragColor = color;
       }
     `;
@@ -131,6 +123,10 @@ export class TerrainMaterial {
 
   updateTime(time) {
     this.material.uniforms.time.value = time;
+  }
+  setOSMMap(texture) {
+    this.material.uniforms.osmMap.value = texture;
+    this.material.uniforms.useOsmMap.value = !!texture;
   }
   getMaterial() {
     return this.material;

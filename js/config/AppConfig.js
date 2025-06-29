@@ -11,7 +11,7 @@ export const AppConfig = {
   },
 
   elevation: {
-    waterLevel: 0,          
+    waterLevel: 1.5,          
     mountainLevel: 1000,    
     snowLevel: 2500,       
     slopeThreshold: 0.3    
