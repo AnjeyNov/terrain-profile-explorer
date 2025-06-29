@@ -10,6 +10,15 @@ export class EuropeMapSelector {
       minLat:  36, maxLat: 60
     };
 
+    // В конструкторе замените границы на такие:
+this.europeBounds = {
+  minLon: -25,
+  maxLon:  45,
+  minLat:  36,   // по-прежнему юг Испании
+  maxLat:  65    // теперь до 70° N — Швеция в кадре
+};
+
+
     // Будем запоминать самый «левый/верхний» тайл, чтобы сдвигать всё влево/вверх
     this.originTileX = 0;
     this.originTileY = 0;

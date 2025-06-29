@@ -41,12 +41,11 @@ export class TerrainTextures {
           b = 120 + Math.sin(x * 0.08) * Math.cos(y * 0.18) * 60;
           break;
         case 'sand':
-          r = 200 + Math.sin(x * 0.2) * Math.cos(y * 0.2) * 30;
-          g = 180 + Math.sin(x * 0.25) * Math.cos(y * 0.15) * 25;
-          b = 120 + Math.sin(x * 0.18) * Math.cos(y * 0.22) * 20;
+          r = 220;
+          g = 205;
+          b = 135;
           break;
         case 'grass':
-          // Зеленый цвет для травы
           r = 50 + Math.sin(x * 0.3) * Math.cos(y * 0.3) * 40;
           g = 120 + Math.sin(x * 0.35) * Math.cos(y * 0.25) * 60;
           b = 30 + Math.sin(x * 0.28) * Math.cos(y * 0.32) * 25;
@@ -75,7 +74,6 @@ export class TerrainTextures {
     texture.repeat.set(20, 20);
     return texture;
   }
-
 
   createNormalMaps() {
     const intensities = {

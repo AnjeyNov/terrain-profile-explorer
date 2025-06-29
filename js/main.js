@@ -107,15 +107,9 @@ const container = document.querySelector('#container');
 
   setupEventListeners() {
     const canvas = this.renderer.getCanvas();
-
     canvas.addEventListener('mousemove', (ev) => this.onMouseMove(ev));
-    canvas.addEventListener('mousedown', (ev) => this.onMouseDown(ev));
-    canvas.addEventListener('mouseup', (ev) => this.onMouseUp(ev));
-    canvas.addEventListener('mouseleave', (ev) => this.onMouseUp(ev));
     canvas.addEventListener('wheel', (ev) => this.onWheel(ev));
-    
     canvas.addEventListener('click', (ev) => this.onClick(ev));
-    
     window.addEventListener('resize', () => this.onResize());
   }
 
@@ -171,42 +165,19 @@ const container = document.querySelector('#container');
   }
 
   onMouseMove(ev) {
-    if (this.isDragging) {
-      const dx = ev.clientX - this.lastMouse.x;
-      const dy = ev.clientY - this.lastMouse.y;
-      // Чем больше zoom, тем "быстрее" карта двигается
-      this.centerLon -= dx * this.zoom / 600;
-      this.centerLat += dy * this.zoom / 600;
-      this.lastMouse = { x: ev.clientX, y: ev.clientY };
-      this.updateTerrain();
+    // drag-перемещение отключено, только подсказка по высоте
+    const hit = this.getHitPoint(ev);
+    if (hit) {
+      const { x: mx, z: mz, y: my } = hit.point;
+      const relX = mx / getConfig('terrain.size');
+      const relZ = mz / getConfig('terrain.size');
+      const lon = this.centerLon + relX * this.zoom;
+      const lat = this.centerLat + relZ * this.zoom * (37/55);
+      const height = my * 1000;
+      this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
     } else {
-      const hit = this.getHitPoint(ev);
-      
-      if (hit) {
-        const { x: mx, z: mz, y: my } = hit.point;
-        // Преобразуем mx/mz в lon/lat относительно центра и zoom
-        const relX = mx / getConfig('terrain.size');
-        const relZ = mz / getConfig('terrain.size');
-        const lon = this.centerLon + relX * this.zoom;
-        const lat = this.centerLat + relZ * this.zoom * (37/55);
-        const height = my * 1000; 
-        
-        this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
-      } else {
-        this.infoPanel.clear();
-      }
+      this.infoPanel.clear();
     }
-  }
-
-  onMouseDown(ev) {
-    this.isDragging = true;
-    this.lastMouse = { x: ev.clientX, y: ev.clientY };
-    document.body.style.cursor = 'grabbing';
-  }
-
-  onMouseUp(ev) {
-    this.isDragging = false;
-    document.body.style.cursor = '';
   }
 
   onWheel(ev) {
@@ -217,9 +188,8 @@ const container = document.querySelector('#container');
   }
 
   async onClick(ev) {
-    if (this.isDragging) return; // не ставим точки при drag
     const hit = this.getHitPoint(ev);
-  if (!hit) return;
+    if (!hit) return;
 
     const { x: mx, z: mz } = hit.point;
     const relX = mx / getConfig('terrain.size');
