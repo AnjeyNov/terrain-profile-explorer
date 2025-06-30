@@ -33,9 +33,9 @@ export class TerrainGeometry {
     return this.res;
   }
 
-  static createMarkerPoint() {
+  static createMarkerPoint(radius = 1.5) {
     return new THREE.Mesh(
-      new THREE.SphereGeometry(1.5, 16, 16),
+      new THREE.SphereGeometry(radius, 16, 16),
       new THREE.MeshBasicMaterial({ color: 0xff0000 })
     );
   }

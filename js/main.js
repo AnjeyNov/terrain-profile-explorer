@@ -9,7 +9,7 @@ import { Controls } from './core/Controls.js';
 
 import { TerrainGeometry } from './terrain/TerrainGeometry.js';
 import { TerrainMaterial } from './terrain/TerrainMaterial.js';
-import { TerrainTextures, getGoogleSatelliteTexture } from './terrain/TerrainTextures.js';
+import { TerrainTextures, getGoogleSatelliteTexture, getOSMTexture } from './terrain/TerrainTextures.js';
 import { DEMLoader } from './terrain/DEMLoader.js';
 
 import { ProfileChart } from './ui/ProfileChart.js';
@@ -23,14 +23,15 @@ class TerrainExplorer {
   constructor() {
     this.clickPoints = [];
     this.time = 0;
-    // Европа: долгота -25..45, широта 35..72
-    this.centerLon = 10; // центр Европы
+
+    this.centerLon = 10; 
     this.centerLat = 54;
-    this.zoom = 40; // ширина области в градусах (чем меньше — тем "ближе")
+    this.zoom = 40; 
     this.osmTexture = null;
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
     this.europeMapSelector = null;
+    this.mapType = 'osm';
     
     this.init();
   }
@@ -42,6 +43,7 @@ class TerrainExplorer {
     this.setupLighting();
     this.setupEventListeners();
     this.setupRegionSelector();
+    this.setupMapTypeSwitcher();
     await this.showRegionSelector();
   }
 
@@ -52,7 +54,7 @@ const container = document.querySelector('#container');
     this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
     this.renderer = new Renderer(container, getConfig('renderer'));
     this.controls = new Controls(this.camera.getCamera(), this.renderer.getRenderer());
-    this.controls.setPanEnabled(false); // отключаем стандартный pan
+    this.controls.setPanEnabled(false); 
   }
 
   setupTerrain() {
@@ -130,6 +132,17 @@ const container = document.querySelector('#container');
     });
   }
 
+  setupMapTypeSwitcher() {
+    const switcher = document.getElementById('map-type-switcher');
+    if (!switcher) return;
+    switcher.querySelectorAll('input[name="mapType"]').forEach(el => {
+      el.addEventListener('change', (e) => {
+        this.mapType = e.target.value;
+        this.loadSelectedRegion();
+      });
+    });
+  }
+
   async showRegionSelector() {
     this.europeMapSelector.show();
   }
@@ -137,7 +150,7 @@ const container = document.querySelector('#container');
   async loadSelectedRegion() {
     const selectedRegion = this.europeMapSelector.getSelectedRegion();
     if (!selectedRegion) {
-      alert('Пожалуйста, выберите область на карте');
+      alert('Proszę wybrać obszar na mapie');
       return;
     }
 
@@ -146,37 +159,42 @@ const container = document.querySelector('#container');
     this.zoom = selectedRegion.zoom;
 
     this.europeMapSelector.hide();
-    // --- GOOGLE SATELLITE TEXTURE ---
     const bounds = {
       minLon: this.centerLon - this.zoom / 2,
       maxLon: this.centerLon + this.zoom / 2,
       minLat: this.centerLat - this.zoom / 2 * (37/55),
       maxLat: this.centerLat + this.zoom / 2 * (37/55)
     };
-    const satZoom = 8; // Можно подобрать под размер области
-    this.infoPanel.showMessage('Загрузка спутниковой карты Google...', 'info');
-    // --- Получаем session для Google Tile API ---
-    const apiKey = 'AIzaSyCu5UeYxXJxT2RrP9j-QlrMyuOphvMgQ5Q'; // TODO: вынести в конфиг
-    let session = null;
-    try {
-      const resp = await fetch(`https://tile.googleapis.com/v1/createSession?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mapType: 'satellite',
-            language: 'en-US',
-            region: 'US'
-          })
-        }
-      );
-      const data = await resp.json();
-      session = data.session;
-    } catch (e) {
-      this.infoPanel.showMessage('Ошибка получения сессии Google Tiles', 'error');
-      return;
+    const texZoom = 8;
+    let texture = null;
+    if (this.mapType === 'osm') {
+      this.infoPanel.showMessage('Ładowanie mapy OSM...', 'info');
+      texture = await getOSMTexture(bounds, texZoom, 1024);
+    } else {
+      this.infoPanel.showMessage('Ładowanie mapy satelitarnej Google...', 'info');
+      const apiKey = 'AIzaSyCu5UeYxXJxT2RrP9j-QlrMyuOphvMgQ5Q'; // TODO: wyciągnąć do konfiguracji
+      let session = null;
+      try {
+        const resp = await fetch(`https://tile.googleapis.com/v1/createSession?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              mapType: 'satellite',
+              language: 'en-US',
+              region: 'US'
+            })
+          }
+        );
+        const data = await resp.json();
+        session = data.session;
+      } catch (e) {
+        this.infoPanel.showMessage('Błąd uzyskania sesji Google Tiles', 'error');
+        return;
+      }
+      texture = await getGoogleSatelliteTexture(bounds, texZoom, 1024, apiKey, session);
     }
-    this.osmTexture = await getGoogleSatelliteTexture(bounds, satZoom, 1024, apiKey, session);
+    this.osmTexture = texture;
     this.terrainMaterial.setOSMMap(this.osmTexture);
     this.infoPanel.clear();
     await this.updateTerrain();
@@ -184,7 +202,6 @@ const container = document.querySelector('#container');
   }
 
   async updateTerrain() {
-    // Ограничиваем центр и zoom в пределах Европы
     this.centerLon = Math.max(-25, Math.min(45, this.centerLon));
     this.centerLat = Math.max(35, Math.min(72, this.centerLat));
     this.zoom = Math.max(2, Math.min(70, this.zoom));
@@ -222,11 +239,6 @@ const container = document.querySelector('#container');
 
   onWheel(ev) {
     ev.preventDefault();
-    // Только масштабируем камеру, не обновляем рельеф
-    // if (ev.deltaY < 0) this.zoom *= 0.9;
-    // else this.zoom *= 1.1;
-    // this.updateTerrain();
-    // OrbitControls сам обрабатывает zoom
   }
 
   async onClick(ev) {
@@ -238,16 +250,47 @@ const container = document.querySelector('#container');
     const relZ = mz / getConfig('terrain.size');
     const lon = this.centerLon + relX * this.zoom;
     const lat = this.centerLat + relZ * this.zoom * (37/55);
-    
-    this.clickPoints.push({ mx, mz, lon, lat });
 
-    const marker = TerrainGeometry.createMarkerPoint();
+    if (this.clickPoints.length === 2) {
+      this.scene.remove('marker_1');
+      this.scene.remove('marker_2');
+      this.scene.remove('profile_line');
+      this.clickPoints = [];
+    }
+
+    this.clickPoints.push({ mx, mz, lon, lat, y: hit.point.y });
+
+    const marker = TerrainGeometry.createMarkerPoint(0.8);
     marker.position.copy(hit.point);
     this.scene.add(`marker_${this.clickPoints.length}`, marker);
 
     if (this.clickPoints.length === 2) {
+      await this.updateTerrain();
+      const getY = (mx, mz) => {
+        const geom = this.terrainGeometry.getGeometry();
+        const pos = geom.attributes.position;
+        let minDist = Infinity, minIdx = 0;
+        for (let i = 0; i < pos.count; i++) {
+          const dx = pos.getX(i) - mx;
+          const dz = pos.getZ(i) - mz;
+          const dist = dx*dx + dz*dz;
+          if (dist < minDist) { minDist = dist; minIdx = i; }
+        }
+        return pos.getY(minIdx);
+      };
+      const p1 = this.clickPoints[0];
+      const p2 = this.clickPoints[1];
+      const y1 = getY(p1.mx, p1.mz);
+      const y2 = getY(p2.mx, p2.mz);
+      const v1 = new THREE.Vector3(p1.mx, y1, p1.mz);
+      const v2 = new THREE.Vector3(p2.mx, y2, p2.mz);
+      const geometry = new THREE.BufferGeometry().setFromPoints([v1, v2]);
+      const material = new THREE.LineBasicMaterial({ color: 0xff2222, linewidth: 12 });
+      material.depthTest = false;
+      const line = new THREE.Line(geometry, material);
+      line.renderOrder = 999;
+      this.scene.add('profile_line', line);
       await this.createProfile();
-      this.clickPoints = [];
     }
   }
 
@@ -274,10 +317,6 @@ const container = document.querySelector('#container');
       
       this.profileChart.drawProfile(profile);
       this.infoPanel.updateProfileInfo(this.clickPoints[0], this.clickPoints[1]);
-      
-      this.scene.remove('marker_1');
-      this.scene.remove('marker_2');
-      
     } catch (error) {
       console.error('Error creating profile:', error);
       this.infoPanel.showMessage('Ошибка при создании профиля', 'error');

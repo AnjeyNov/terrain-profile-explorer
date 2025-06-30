@@ -123,7 +123,6 @@ export class TerrainTextures {
   }
 }
 
-// --- GoogleTileAPI helper ---
 class GoogleTileAPI {
   constructor(apiKey, session) {
     this.apiKey = apiKey;
@@ -135,8 +134,7 @@ class GoogleTileAPI {
   }
 }
 
-// --- Satellite Texture Loader ---
-export async function getGoogleSatelliteTexture(bounds, zoom, size = 1024, apiKey, session) {
+export async function getGoogleSatelliteTexture(bounds, zoom, size = 1024, apiKey, session, profileLine) {
   const tileSize = 256;
   function lonLatToTileXY(lon, lat, z) {
     const n = Math.pow(2, z);
@@ -174,7 +172,93 @@ export async function getGoogleSatelliteTexture(bounds, zoom, size = 1024, apiKe
   const outCanvas = document.createElement('canvas');
   outCanvas.width = size;
   outCanvas.height = size;
-  outCanvas.getContext('2d').drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+  const outCtx = outCanvas.getContext('2d');
+  outCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+
+  // Рисуем линию профиля, если передана
+  if (profileLine && profileLine.length === 2) {
+    const { minLon, maxLon, minLat, maxLat } = bounds;
+    function lonLatToXY(lon, lat) {
+      const x = ((lon - minLon) / (maxLon - minLon)) * size;
+      const y = size - ((lat - minLat) / (maxLat - minLat)) * size;
+      return { x, y };
+    }
+    const p1 = lonLatToXY(profileLine[0].lon, profileLine[0].lat);
+    const p2 = lonLatToXY(profileLine[1].lon, profileLine[1].lat);
+    outCtx.save();
+    outCtx.strokeStyle = '#ef4444';
+    outCtx.lineWidth = 3;
+    outCtx.beginPath();
+    outCtx.moveTo(p1.x, p1.y);
+    outCtx.lineTo(p2.x, p2.y);
+    outCtx.stroke();
+    outCtx.restore();
+  }
+
+  const texture = new THREE.CanvasTexture(outCanvas);
+  texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+export async function getOSMTexture(bounds, zoom, size = 1024, profileLine) {
+  const tileSize = 256;
+  function lonLatToTileXY(lon, lat, z) {
+    const n = Math.pow(2, z);
+    const xtile = Math.floor((lon + 180) / 360 * n);
+    const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n);
+    return { x: xtile, y: ytile };
+  }
+  const topLeft = lonLatToTileXY(bounds.minLon, bounds.maxLat, zoom);
+  const bottomRight = lonLatToTileXY(bounds.maxLon, bounds.minLat, zoom);
+  const tilesX = bottomRight.x - topLeft.x + 1;
+  const tilesY = bottomRight.y - topLeft.y + 1;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = tilesX * tileSize;
+  canvas.height = tilesY * tileSize;
+  const ctx = canvas.getContext('2d');
+
+  const promises = [];
+  for (let x = 0; x < tilesX; x++) {
+    for (let y = 0; y < tilesY; y++) {
+      const tileX = topLeft.x + x;
+      const tileY = topLeft.y + y;
+      const url = `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`;
+      promises.push(
+        fetch(url)
+          .then(r => r.ok ? r.blob() : null)
+          .then(blob => blob ? createImageBitmap(blob) : null)
+          .then(img => { if (img) ctx.drawImage(img, x * tileSize, y * tileSize); })
+      );
+    }
+  }
+  await Promise.all(promises);
+
+  const outCanvas = document.createElement('canvas');
+  outCanvas.width = size;
+  outCanvas.height = size;
+  const outCtx = outCanvas.getContext('2d');
+  outCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+
+  if (profileLine && profileLine.length === 2) {
+    const { minLon, maxLon, minLat, maxLat } = bounds;
+    function lonLatToXY(lon, lat) {
+      const x = ((lon - minLon) / (maxLon - minLon)) * size;
+      const y = size - ((lat - minLat) / (maxLat - minLat)) * size;
+      return { x, y };
+    }
+    const p1 = lonLatToXY(profileLine[0].lon, profileLine[0].lat);
+    const p2 = lonLatToXY(profileLine[1].lon, profileLine[1].lat);
+    outCtx.save();
+    outCtx.strokeStyle = '#ef4444';
+    outCtx.lineWidth = 30;
+    outCtx.beginPath();
+    outCtx.moveTo(p1.x, p1.y);
+    outCtx.lineTo(p2.x, p2.y);
+    outCtx.stroke();
+    outCtx.restore();
+  }
 
   const texture = new THREE.CanvasTexture(outCanvas);
   texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;

@@ -21,14 +21,14 @@ export class EuropeMapSelector {
 
     this.tileCache = new Map();
     this.predefinedRegions = {
-      'Альпы':              { centerLon: 10,  centerLat: 47, zoom:  8,  name: 'Альпы' },
-      'Пиренеи':            { centerLon:  0,  centerLat: 42, zoom:  6,  name: 'Пиренеи' },
-      'Карпаты':            { centerLon: 25,  centerLat: 47, zoom: 10,  name: 'Карпаты' },
-      'Скандинавия':        { centerLon: 15,  centerLat: 62, zoom: 15,  name: 'Скандинавия' },
-      'Балканы':            { centerLon: 20,  centerLat: 42, zoom: 12,  name: 'Балканы' },
-      'Британские острова': { centerLon:-5,   centerLat: 55, zoom:  8,  name: 'Британские острова' },
-      'Центральная Европа': { centerLon:10,   centerLat: 50, zoom: 12,  name: 'Центральная Европа' },
-      'Восточная Европа':   { centerLon:30,   centerLat: 50, zoom: 15,  name: 'Восточная Европа' }
+      'Alpy':              { centerLon: 10,  centerLat: 47, zoom:  8,  name: 'Alpy' },
+      'Pireneje':          { centerLon:  0,  centerLat: 42, zoom:  6,  name: 'Pireneje' },
+      'Karpaty':           { centerLon: 25,  centerLat: 47, zoom: 10,  name: 'Karpaty' },
+      'Skandynawia':       { centerLon: 15,  centerLat: 62, zoom: 15,  name: 'Skandynawia' },
+      'Bałkany':           { centerLon: 20,  centerLat: 42, zoom: 12,  name: 'Bałkany' },
+      'Wyspy Brytyjskie':  { centerLon:-5,   centerLat: 55, zoom:  8,  name: 'Wyspy Brytyjskie' },
+      'Europa Środkowa':   { centerLon:10,   centerLat: 50, zoom: 12,  name: 'Europa Środkowa' },
+      'Europa Wschodnia':  { centerLon:30,   centerLat: 50, zoom: 15,  name: 'Europa Wschodnia' }
     };
 
     this.selectionStart  = null;
@@ -53,7 +53,6 @@ export class EuropeMapSelector {
     return { x, y };
   }
 
-  // lon/lat → координаты на canvas (с учётом originTileX/Y)
   lonLatToPixel(lon, lat) {
     const gp = this.lonLatToGlobalPixel(lon, lat);
     return {
@@ -221,7 +220,7 @@ export class EuropeMapSelector {
       centerLon: (a.lon + b.lon) / 2,
       centerLat: (a.lat + b.lat) / 2,
       zoom:      Math.abs(b.lon - a.lon) * 0.8,
-      name:      'Выбранная область'
+      name:      'Wybierana obszar'
     };
   }
 

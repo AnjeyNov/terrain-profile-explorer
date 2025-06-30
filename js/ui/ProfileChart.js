@@ -15,39 +15,33 @@ export class ProfileChart {
     }
 
     this.chart = new Chart(canvas, {
-      type: 'line', // всё ещё «line», но с fill:true это area
+      type: 'line', 
       data: {
         labels: [],
         datasets: [{
-          label: 'Высота (м)',
+          label: 'Wysokość (м)',
           data: [],
           borderColor: '#3b82f6',
           borderWidth: 2,
-          fill: 'start',       // заливать от линии до низа
-          tension: 0.5,        // плавность кривой (0..1)
+          fill: 'start',       
+          tension: 0.5,        
           pointRadius: 0,
           pointHoverRadius: 4,
           pointHoverBackgroundColor: '#3b82f6',
 
-          // вот функция, создающая градиент, меняющий цвет в точке y=0
           backgroundColor: (ctx) => {
             const chart = ctx.chart;
             const {ctx: c, chartArea} = chart;
             if (!chartArea) {
-              // ещё не инициали­зировалось layout, вернём «запасной» цвет
               return 'rgba(59,130,246,0.1)';
             }
             const {top, bottom} = chartArea;
-            // пиксель по оси Y, соответствующий нулевой высоте
             const yZero = chart.scales.y.getPixelForValue(0);
 
             const grad = c.createLinearGradient(0, top, 0, bottom);
-            // Clamp the gradient stop value between 0 and 1
             const gradientStop = Math.max(0, Math.min(1, (yZero - top) / (bottom - top)));
-            // от верха до yZero — зелёный
             grad.addColorStop(0, 'rgba(34,197,94,0.5)');
             grad.addColorStop(gradientStop, 'rgba(34,197,94,0.5)');
-            // от yZero до низа — синий
             grad.addColorStop(gradientStop, 'rgba(59,130,246,0.5)');
             grad.addColorStop(1, 'rgba(59,130,246,0.5)');
 
@@ -62,7 +56,7 @@ export class ProfileChart {
         plugins: {
           title: {
             display: true,
-            text: 'Профиль высоты',
+            text: 'Profil terenu',
             font: { size: 16, weight: 'bold' },
             color: '#374151'
           },
@@ -76,7 +70,7 @@ export class ProfileChart {
             borderColor: '#3b82f6',
             borderWidth: 1,
             callbacks: {
-              label: ctx => `Высота: ${ctx.parsed.y.toFixed(0)} м`
+              label: ctx => `Wysokość: ${ctx.parsed.y.toFixed(0)} м`
             }
           }
         },
@@ -85,7 +79,7 @@ export class ProfileChart {
           x: {
             title: {
               display: true,
-              text: 'Расстояние',
+              text: 'Długość',
               font: { size: 12 },
               color: '#6b7280'
             },
@@ -95,14 +89,13 @@ export class ProfileChart {
           y: {
             title: {
               display: true,
-              text: 'Высота (м)',
+              text: 'Wysokość (м)',
               font: { size: 12 },
               color: '#6b7280'
             },
             grid: { color: 'rgba(0,0,0,0.1)' },
             ticks: {
               color: '#6b7280',
-              // грубо отметим 0, чтобы видеть границу
               callback: v => v === 0 ? '0 м' : v
             }
           }
@@ -128,6 +121,23 @@ export class ProfileChart {
       `${((i / (heights.length - 1)) * 100).toFixed(0)}%`
     );
     this.chart.data.datasets[0].data = heights;
+    this.chart.data.datasets[1] = {
+      label: 'Odcinek',
+      data: [heights[0], heights[heights.length - 1]],
+      borderColor: '#ef4444',
+      borderWidth: 2,
+      fill: false,
+      pointRadius: 4,
+      pointBackgroundColor: '#ef4444',
+      showLine: true,
+      spanGaps: true,
+      order: 1,
+      parsing: false,
+      data: [
+        {x: 0, y: heights[0]},
+        {x: heights.length - 1, y: heights[heights.length - 1]}
+      ]
+    };
     this.chart.update();
 
     const maxH = Math.max(...heights);
@@ -145,6 +155,7 @@ export class ProfileChart {
     if (!this.chart) return;
     this.chart.data.labels = [];
     this.chart.data.datasets[0].data = [];
+    this.chart.data.datasets[1] = [];
     this.chart.update();
   }
 

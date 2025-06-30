@@ -10,9 +10,9 @@ export class InfoPanel {
 
   updateTerrainInfo(point, lon, lat, height) {
     this.el.innerHTML =
-      `Долгота: ${lon.toFixed(4)}<br>` +
-      `Широта: ${lat.toFixed(4)}<br>` +
-      `Высота: ${height.toFixed(1)} м`;
+      `Długość geogr.: ${lon.toFixed(4)}<br>` +
+      `Szerokość geogr.: ${lat.toFixed(4)}<br>` +
+      `Wysokość: ${height.toFixed(1)} m`;
   }
 
   getTerrainType(height) {
@@ -31,7 +31,7 @@ export class InfoPanel {
 
   updateProfileInfo(p1, p2) {
     this.el.innerHTML =
-      `Профиль: <br>` +
+      `Profil: <br>` +
       `A (${p1.lon.toFixed(4)}, ${p1.lat.toFixed(4)})<br>` +
       `B (${p2.lon.toFixed(4)}, ${p2.lat.toFixed(4)})`;
   }
