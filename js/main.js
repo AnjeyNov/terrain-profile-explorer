@@ -9,7 +9,7 @@ import { Controls } from './core/Controls.js';
 
 import { TerrainGeometry } from './terrain/TerrainGeometry.js';
 import { TerrainMaterial } from './terrain/TerrainMaterial.js';
-import { TerrainTextures, getOSMTexture } from './terrain/TerrainTextures.js';
+import { TerrainTextures, getGoogleSatelliteTexture } from './terrain/TerrainTextures.js';
 import { DEMLoader } from './terrain/DEMLoader.js';
 
 import { ProfileChart } from './ui/ProfileChart.js';
@@ -146,16 +146,37 @@ const container = document.querySelector('#container');
     this.zoom = selectedRegion.zoom;
 
     this.europeMapSelector.hide();
-    // --- OSM TEXTURE ---
+    // --- GOOGLE SATELLITE TEXTURE ---
     const bounds = {
       minLon: this.centerLon - this.zoom / 2,
       maxLon: this.centerLon + this.zoom / 2,
       minLat: this.centerLat - this.zoom / 2 * (37/55),
       maxLat: this.centerLat + this.zoom / 2 * (37/55)
     };
-    const osmZoom = 8; // Можно подобрать под размер области
-    this.infoPanel.showMessage('Загрузка карты OSM...', 'info');
-    this.osmTexture = await getOSMTexture(bounds, osmZoom, 1024);
+    const satZoom = 8; // Можно подобрать под размер области
+    this.infoPanel.showMessage('Загрузка спутниковой карты Google...', 'info');
+    // --- Получаем session для Google Tile API ---
+    const apiKey = 'AIzaSyCu5UeYxXJxT2RrP9j-QlrMyuOphvMgQ5Q'; // TODO: вынести в конфиг
+    let session = null;
+    try {
+      const resp = await fetch(`https://tile.googleapis.com/v1/createSession?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mapType: 'satellite',
+            language: 'en-US',
+            region: 'US'
+          })
+        }
+      );
+      const data = await resp.json();
+      session = data.session;
+    } catch (e) {
+      this.infoPanel.showMessage('Ошибка получения сессии Google Tiles', 'error');
+      return;
+    }
+    this.osmTexture = await getGoogleSatelliteTexture(bounds, satZoom, 1024, apiKey, session);
     this.terrainMaterial.setOSMMap(this.osmTexture);
     this.infoPanel.clear();
     await this.updateTerrain();

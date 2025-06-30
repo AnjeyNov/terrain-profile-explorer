@@ -42,11 +42,13 @@ export class ProfileChart {
             const yZero = chart.scales.y.getPixelForValue(0);
 
             const grad = c.createLinearGradient(0, top, 0, bottom);
+            // Clamp the gradient stop value between 0 and 1
+            const gradientStop = Math.max(0, Math.min(1, (yZero - top) / (bottom - top)));
             // от верха до yZero — зелёный
             grad.addColorStop(0, 'rgba(34,197,94,0.5)');
-            grad.addColorStop((yZero - top) / (bottom - top), 'rgba(34,197,94,0.5)');
+            grad.addColorStop(gradientStop, 'rgba(34,197,94,0.5)');
             // от yZero до низа — синий
-            grad.addColorStop((yZero - top) / (bottom - top), 'rgba(59,130,246,0.5)');
+            grad.addColorStop(gradientStop, 'rgba(59,130,246,0.5)');
             grad.addColorStop(1, 'rgba(59,130,246,0.5)');
 
             return grad;

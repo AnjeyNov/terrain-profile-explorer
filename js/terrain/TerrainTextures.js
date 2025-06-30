@@ -123,10 +123,21 @@ export class TerrainTextures {
   }
 }
 
-export async function getOSMTexture(bounds, zoom, size = 1024) {
+// --- GoogleTileAPI helper ---
+class GoogleTileAPI {
+  constructor(apiKey, session) {
+    this.apiKey = apiKey;
+    this.session = session;
+  }
+  getTileUrl(z, x, y) {
+    if (!this.session) throw new Error('Session not initialized');
+    return `https://tile.googleapis.com/v1/2dtiles/${z}/${x}/${y}?session=${this.session}&key=${this.apiKey}`;
+  }
+}
 
+// --- Satellite Texture Loader ---
+export async function getGoogleSatelliteTexture(bounds, zoom, size = 1024, apiKey, session) {
   const tileSize = 256;
-
   function lonLatToTileXY(lon, lat, z) {
     const n = Math.pow(2, z);
     const xtile = Math.floor((lon + 180) / 360 * n);
@@ -143,12 +154,13 @@ export async function getOSMTexture(bounds, zoom, size = 1024) {
   canvas.height = tilesY * tileSize;
   const ctx = canvas.getContext('2d');
 
+  const googleTile = new GoogleTileAPI(apiKey, session);
   const promises = [];
   for (let x = 0; x < tilesX; x++) {
     for (let y = 0; y < tilesY; y++) {
       const tileX = topLeft.x + x;
       const tileY = topLeft.y + y;
-      const url = `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`;
+      const url = googleTile.getTileUrl(zoom, tileX, tileY);
       promises.push(
         fetch(url)
           .then(r => r.ok ? r.blob() : null)
