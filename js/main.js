@@ -172,7 +172,11 @@ const container = document.querySelector('#container');
       texture = await getOSMTexture(bounds, texZoom, 1024);
     } else {
       this.infoPanel.showMessage('Ładowanie mapy satelitarnej Google...', 'info');
-      const apiKey = 'AIzaSyCu5UeYxXJxT2RrP9j-QlrMyuOphvMgQ5Q'; // TODO: wyciągnąć do konfiguracji
+      const apiKey = document.getElementById('google-api-key').value.trim();
+      if (!apiKey) {
+        this.infoPanel.showMessage('Wprowadź klucz Google API!', 'error');
+        return;
+      }
       let session = null;
       try {
         const resp = await fetch(`https://tile.googleapis.com/v1/createSession?key=${apiKey}`,
