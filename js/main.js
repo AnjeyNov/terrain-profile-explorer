@@ -33,6 +33,11 @@ class TerrainExplorer {
     this.europeMapSelector = null;
     this.mapType = 'osm';
 
+    this.currentTexZoom = 8;
+    this.baseCameraDistance = getConfig('terrain.size') * 1.2;
+    this.osmTextureLoading = false;
+    this.osmTextureDebounce = null;
+
     this.init();
   }
 
@@ -114,6 +119,8 @@ class TerrainExplorer {
     canvas.addEventListener('wheel', (ev) => this.onWheel(ev));
     canvas.addEventListener('click', (ev) => this.onClick(ev));
     window.addEventListener('resize', () => this.onResize());
+    this.controls.getControls().addEventListener('change', () => this.onCameraZoomChange());
+    window.addEventListener('keydown', (ev) => this.onArrowKey(ev));
   }
 
   setupRegionSelector() {
@@ -209,6 +216,11 @@ class TerrainExplorer {
     this.infoPanel.clear();
     await this.updateTerrain();
     this.animate();
+    this.lastBounds = bounds;
+    this.lastSelectedRegion = selectedRegion;
+    this.baseCameraDistance = getConfig('terrain.size') * 2;
+    console.log('[ZoomChange] baseCameraDistance set to:', this.baseCameraDistance);
+    this.currentTexZoom = texZoom;
   }
 
   async updateTerrain() {
@@ -353,6 +365,52 @@ class TerrainExplorer {
       clickPoints: this.clickPoints.length,
       config: AppConfig
     };
+  }
+
+  async onCameraZoomChange() {
+    if (this.mapType !== 'osm' || !this.lastBounds) return;
+    const cam = this.camera.getCamera();
+    const dist = cam.position.length();
+    const minDist = this.controls.getControls().minDistance;
+    const maxDist = this.controls.getControls().maxDistance;
+    console.log('[ZoomChange] Camera position:', cam.position, 'minDistance:', minDist, 'maxDistance:', maxDist);
+    let newTexZoom = 8 + Math.floor(Math.log2(this.baseCameraDistance / dist));
+    newTexZoom = Math.max(7, Math.min(17, newTexZoom));
+    console.log('[ZoomChange] Camera distance:', dist, 'Calculated texZoom:', newTexZoom, 'Current texZoom:', this.currentTexZoom);
+    if (newTexZoom === this.currentTexZoom) return;
+    if (this.osmTextureDebounce) clearTimeout(this.osmTextureDebounce);
+    this.osmTextureDebounce = setTimeout(async () => {
+      if (this.osmTextureLoading) return;
+      this.osmTextureLoading = true;
+      console.log('[ZoomChange] Start loading OSM texture, texZoom:', newTexZoom);
+      this.infoPanel.showMessage('Ładowanie szczegółowej mapy OSM...', 'info');
+      const texture = await getOSMTexture(this.lastBounds, newTexZoom, 1024);
+      this.osmTexture = texture;
+      this.terrainMaterial.setOSMMap(this.osmTexture);
+      this.currentTexZoom = newTexZoom;
+      this.infoPanel.clear();
+      this.osmTextureLoading = false;
+      console.log('[ZoomChange] Finished loading OSM texture, texZoom:', newTexZoom);
+    }, 500);
+  }
+
+  onArrowKey(ev) {
+    const controls = this.controls.getControls();
+    const camera = this.camera.getCamera();
+    const step = getConfig('terrain.size') * 0.05;
+    let dx = 0, dz = 0;
+    if (ev.key === 'ArrowUp') dz = -step;
+    if (ev.key === 'ArrowDown') dz = step;
+    if (ev.key === 'ArrowLeft') dx = -step;
+    if (ev.key === 'ArrowRight') dx = step;
+    if (dx !== 0 || dz !== 0) {
+      controls.target.x += dx;
+      controls.target.z += dz;
+      camera.position.x += dx;
+      camera.position.z += dz;
+      controls.update();
+      ev.preventDefault();
+    }
   }
 }
 
