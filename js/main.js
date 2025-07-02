@@ -24,15 +24,15 @@ class TerrainExplorer {
     this.clickPoints = [];
     this.time = 0;
 
-    this.centerLon = 10; 
+    this.centerLon = 10;
     this.centerLat = 54;
-    this.zoom = 40; 
+    this.zoom = 40;
     this.osmTexture = null;
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
     this.europeMapSelector = null;
     this.mapType = 'osm';
-    
+
     this.init();
   }
 
@@ -48,13 +48,13 @@ class TerrainExplorer {
   }
 
   setupCore() {
-const container = document.querySelector('#container');
-    
+    const container = document.querySelector('#container');
+
     this.scene = new Scene();
     this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
     this.renderer = new Renderer(container, getConfig('renderer'));
     this.controls = new Controls(this.camera.getCamera(), this.renderer.getRenderer());
-    this.controls.setPanEnabled(false); 
+    this.controls.setPanEnabled(false);
   }
 
   setupTerrain() {
@@ -63,12 +63,12 @@ const container = document.querySelector('#container');
     const normalMaps = this.terrainTextures.getNormalMaps();
 
     this.terrainGeometry = new TerrainGeometry(
-      getConfig('terrain.size'), 
+      getConfig('terrain.size'),
       getConfig('terrain.tileRes')
     );
 
     this.terrainMaterial = new TerrainMaterial(textures, normalMaps, AppConfig.elevation, null);
-    
+
     this.terrainMesh = new THREE.Mesh(
       this.terrainGeometry.getGeometry(),
       this.terrainMaterial.getMaterial()
@@ -86,9 +86,9 @@ const container = document.querySelector('#container');
 
   setupLighting() {
     const lightingConfig = getConfig('lighting');
-    
+
     const directionalLight = new THREE.DirectionalLight(
-      lightingConfig.directional.color, 
+      lightingConfig.directional.color,
       lightingConfig.directional.intensity
     );
     directionalLight.position.set(
@@ -102,7 +102,7 @@ const container = document.querySelector('#container');
     this.scene.add('directionalLight', directionalLight);
 
     const ambientLight = new THREE.AmbientLight(
-      lightingConfig.ambient.color, 
+      lightingConfig.ambient.color,
       lightingConfig.ambient.intensity
     );
     this.scene.add('ambientLight', ambientLight);
@@ -118,15 +118,21 @@ const container = document.querySelector('#container');
 
   setupRegionSelector() {
     this.europeMapSelector = new EuropeMapSelector('europe-map-canvas');
-    
+
     document.getElementById('select-region-btn').addEventListener('click', () => {
+      if (this.scene.get('marker_1')) this.scene.remove('marker_1');
+      if (this.scene.get('marker_2')) this.scene.remove('marker_2');
+      if (this.scene.get('profile_line')) this.scene.remove('profile_line');
+      this.clickPoints = [];
+      this.infoPanel.clear();
+      this.profileChart.clear();
       this.showRegionSelector();
     });
-    
+
     document.getElementById('cancel-region').addEventListener('click', () => {
       this.europeMapSelector.hide();
     });
-    
+
     document.getElementById('confirm-region').addEventListener('click', () => {
       this.loadSelectedRegion();
     });
@@ -162,8 +168,8 @@ const container = document.querySelector('#container');
     const bounds = {
       minLon: this.centerLon - this.zoom / 2,
       maxLon: this.centerLon + this.zoom / 2,
-      minLat: this.centerLat - this.zoom / 2 * (37/55),
-      maxLat: this.centerLat + this.zoom / 2 * (37/55)
+      minLat: this.centerLat - this.zoom / 2 * (37 / 55),
+      maxLat: this.centerLat + this.zoom / 2 * (37 / 55)
     };
     const texZoom = 8;
     let texture = null;
@@ -226,8 +232,8 @@ const container = document.querySelector('#container');
       const bounds = {
         minLon: this.centerLon - this.zoom / 2,
         maxLon: this.centerLon + this.zoom / 2,
-        minLat: this.centerLat - this.zoom / 2 * (37/55),
-        maxLat: this.centerLat + this.zoom / 2 * (37/55)
+        minLat: this.centerLat - this.zoom / 2 * (37 / 55),
+        maxLat: this.centerLat + this.zoom / 2 * (37 / 55)
       };
       const size = getConfig('terrain.size');
       const u = 1.0 - (mx / size + 0.5);
@@ -253,7 +259,7 @@ const container = document.querySelector('#container');
     const relX = mx / getConfig('terrain.size');
     const relZ = mz / getConfig('terrain.size');
     const lon = this.centerLon + relX * this.zoom;
-    const lat = this.centerLat + relZ * this.zoom * (37/55);
+    const lat = this.centerLat + relZ * this.zoom * (37 / 55);
 
     if (this.clickPoints.length === 2) {
       this.scene.remove('marker_1');
@@ -277,7 +283,7 @@ const container = document.querySelector('#container');
         for (let i = 0; i < pos.count; i++) {
           const dx = pos.getX(i) - mx;
           const dz = pos.getZ(i) - mz;
-          const dist = dx*dx + dz*dz;
+          const dist = dx * dx + dz * dz;
           if (dist < minDist) { minDist = dist; minIdx = i; }
         }
         return pos.getY(minIdx);
@@ -301,13 +307,13 @@ const container = document.querySelector('#container');
   getHitPoint(ev) {
     const canvas = this.renderer.getCanvas();
     const mouse = new THREE.Vector2();
-    
+
     mouse.x = (ev.clientX / canvas.clientWidth) * 2 - 1;
     mouse.y = -(ev.clientY / canvas.clientHeight) * 2 + 1;
-    
+
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, this.camera.getCamera());
-    
+
     return raycaster.intersectObject(this.terrainMesh)[0];
   }
 
@@ -318,7 +324,7 @@ const container = document.querySelector('#container');
         this.clickPoints[1],
         getConfig('profile.samples')
       );
-      
+
       this.profileChart.drawProfile(profile);
       this.infoPanel.updateProfileInfo(this.clickPoints[0], this.clickPoints[1]);
     } catch (error) {

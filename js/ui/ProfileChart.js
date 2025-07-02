@@ -1,9 +1,9 @@
 export class ProfileChart {
   constructor(canvasId, width = 400, height = 200) {
     this.canvasId = canvasId;
-    this.width    = width;
-    this.height   = height;
-    this.chart    = null;
+    this.width = width;
+    this.height = height;
+    this.chart = null;
     this.initChart();
   }
 
@@ -15,7 +15,7 @@ export class ProfileChart {
     }
 
     this.chart = new Chart(canvas, {
-      type: 'line', 
+      type: 'line',
       data: {
         labels: [],
         datasets: [{
@@ -23,19 +23,19 @@ export class ProfileChart {
           data: [],
           borderColor: '#3b82f6',
           borderWidth: 2,
-          fill: 'start',       
-          tension: 0.5,        
+          fill: 'start',
+          tension: 0.5,
           pointRadius: 0,
           pointHoverRadius: 4,
           pointHoverBackgroundColor: '#3b82f6',
 
           backgroundColor: (ctx) => {
             const chart = ctx.chart;
-            const {ctx: c, chartArea} = chart;
+            const { ctx: c, chartArea } = chart;
             if (!chartArea) {
               return 'rgba(59,130,246,0.1)';
             }
-            const {top, bottom} = chartArea;
+            const { top, bottom } = chartArea;
             const yZero = chart.scales.y.getPixelForValue(0);
 
             const grad = c.createLinearGradient(0, top, 0, bottom);
@@ -134,20 +134,20 @@ export class ProfileChart {
       order: 1,
       parsing: false,
       data: [
-        {x: 0, y: heights[0]},
-        {x: heights.length - 1, y: heights[heights.length - 1]}
+        { x: 0, y: heights[0] },
+        { x: heights.length - 1, y: heights[heights.length - 1] }
       ]
     };
     this.chart.update();
 
     const maxH = Math.max(...heights);
     const minH = Math.min(...heights);
-    const avgH = heights.reduce((a,b) => a+b,0) / heights.length;
+    const avgH = heights.reduce((a, b) => a + b, 0) / heights.length;
     console.log({
       максимальная: `${maxH.toFixed(0)} м`,
       минимальная: `${minH.toFixed(0)} м`,
-      средняя:     `${avgH.toFixed(0)} м`,
-      перепад:     `${(maxH - minH).toFixed(0)} м`
+      средняя: `${avgH.toFixed(0)} м`,
+      перепад: `${(maxH - minH).toFixed(0)} м`
     });
   }
 
@@ -155,7 +155,9 @@ export class ProfileChart {
     if (!this.chart) return;
     this.chart.data.labels = [];
     this.chart.data.datasets[0].data = [];
-    this.chart.data.datasets[1] = [];
+    if (this.chart.data.datasets.length > 1) {
+      this.chart.data.datasets.splice(1, 1);
+    }
     this.chart.update();
   }
 
