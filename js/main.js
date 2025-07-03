@@ -170,7 +170,7 @@ const container = document.querySelector('#container');
     if (this.mapType === 'osm') {
       this.infoPanel.showMessage('Ładowanie mapy OSM...', 'info');
       texture = await getOSMTexture(bounds, texZoom, 1024);
-    } else {
+    } else if (this.mapType === 'satellite') {
       this.infoPanel.showMessage('Ładowanie mapy satelitarnej Google...', 'info');
       const apiKey = document.getElementById('google-api-key').value.trim();
       if (!apiKey) {
@@ -197,6 +197,12 @@ const container = document.querySelector('#container');
         return;
       }
       texture = await getGoogleSatelliteTexture(bounds, texZoom, 1024, apiKey, session);
+    } else if (this.mapType === 'dem') {
+      this.infoPanel.showMessage('Ładowanie DEM tiles...', 'info');
+      texture = await this.generateDEMTileTexture(bounds, texZoom, 1024);
+    } else if (this.mapType === 'dem_decoded') {
+      this.infoPanel.showMessage('Ładowanie decoded DEM...', 'info');
+      texture = await this.generateDecodedDEMTexture(bounds, texZoom, 1024);
     }
     this.osmTexture = texture;
     this.terrainMaterial.setOSMMap(this.osmTexture);
@@ -347,6 +353,142 @@ const container = document.querySelector('#container');
       clickPoints: this.clickPoints.length,
       config: AppConfig
     };
+  }
+
+  // Генерация DEM tiles как текстуры (визуализация Terrarium RGB)
+  async generateDEMTileTexture(bounds, zoom, size = 1024) {
+    const tileSize = 256;
+    function lonLatToTileXY(lon, lat, z) {
+      const n = Math.pow(2, z);
+      const xtile = Math.floor((lon + 180) / 360 * n);
+      const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n);
+      return { x: xtile, y: ytile };
+    }
+    const topLeft = lonLatToTileXY(bounds.minLon, bounds.maxLat, zoom);
+    const bottomRight = lonLatToTileXY(bounds.maxLon, bounds.minLat, zoom);
+    const tilesX = bottomRight.x - topLeft.x + 1;
+    const tilesY = bottomRight.y - topLeft.y + 1;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = tilesX * tileSize;
+    canvas.height = tilesY * tileSize;
+    const ctx = canvas.getContext('2d');
+
+    const promises = [];
+    for (let x = 0; x < tilesX; x++) {
+      for (let y = 0; y < tilesY; y++) {
+        const tileX = topLeft.x + x;
+        const tileY = topLeft.y + y;
+        const url = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${zoom}/${tileX}/${tileY}.png`;
+        promises.push(
+          fetch(url)
+            .then(r => r.ok ? r.blob() : null)
+            .then(blob => blob ? createImageBitmap(blob) : null)
+            .then(img => { if (img) ctx.drawImage(img, x * tileSize, y * tileSize); })
+        );
+      }
+    }
+    await Promise.all(promises);
+
+    // Масштабируем под нужный размер
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = size;
+    outCanvas.height = size;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+
+    const texture = new THREE.CanvasTexture(outCanvas);
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  // Генерация decoded DEM tiles как цветной карты высот
+  async generateDecodedDEMTexture(bounds, zoom, size = 1024) {
+    const tileSize = 256;
+    function lonLatToTileXY(lon, lat, z) {
+      const n = Math.pow(2, z);
+      const xtile = Math.floor((lon + 180) / 360 * n);
+      const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n);
+      return { x: xtile, y: ytile };
+    }
+    const topLeft = lonLatToTileXY(bounds.minLon, bounds.maxLat, zoom);
+    const bottomRight = lonLatToTileXY(bounds.maxLon, bounds.minLat, zoom);
+    const tilesX = bottomRight.x - topLeft.x + 1;
+    const tilesY = bottomRight.y - topLeft.y + 1;
+
+    // Сначала загружаем все DEM-тайлы
+    const demTiles = [];
+    for (let x = 0; x < tilesX; x++) {
+      demTiles[x] = [];
+      for (let y = 0; y < tilesY; y++) {
+        const tileX = topLeft.x + x;
+        const tileY = topLeft.y + y;
+        const url = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${zoom}/${tileX}/${tileY}.png`;
+        const img = await fetch(url)
+          .then(r => r.ok ? r.blob() : null)
+          .then(blob => blob ? createImageBitmap(blob) : null);
+        demTiles[x][y] = img;
+      }
+    }
+
+    // Создаём canvas для всей области
+    const canvas = document.createElement('canvas');
+    canvas.width = tilesX * tileSize;
+    canvas.height = tilesY * tileSize;
+    const ctx = canvas.getContext('2d');
+
+    // Рисуем DEM-тайлы на canvas
+    for (let x = 0; x < tilesX; x++) {
+      for (let y = 0; y < tilesY; y++) {
+        if (demTiles[x][y]) ctx.drawImage(demTiles[x][y], x * tileSize, y * tileSize);
+      }
+    }
+
+    // Получаем данные пикселей
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imgData.data;
+    // Перекрашиваем каждый пиксель в зависимости от высоты
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i+1];
+      const b = data[i+2];
+      // Формула Terrarium
+      const h = (r * 256 + g + b / 256) - 32768;
+      let color = [0,0,0];
+      if (h <= 0) {
+        // Глубина — синий
+        color = [30, 80, 200];
+      } else if (h <= 50) {
+        // Низина — зелёный
+        color = [60, 180, 75];
+      } else if (h <= 1000) {
+        // Равнина — светло-зелёный
+        color = [170, 220, 120];
+      } else if (h <= 2500) {
+        // Горы — коричневый
+        color = [180, 120, 60];
+      } else {
+        // Снег — белый
+        color = [255,255,255];
+      }
+      data[i] = color[0];
+      data[i+1] = color[1];
+      data[i+2] = color[2];
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Масштабируем под нужный размер
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = size;
+    outCanvas.height = size;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, size, size);
+
+    const texture = new THREE.CanvasTexture(outCanvas);
+    texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    return texture;
   }
 }
 

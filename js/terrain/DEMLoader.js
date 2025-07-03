@@ -40,19 +40,27 @@ export class DEMLoader {
     }
   }
   async heightAtLonLat(lon, lat) {
-    const { x, y } = Coordinates.lonLatToMerc(lon, lat);
-    const { x: tx, y: ty } = Coordinates.mercToTileXY(x, y, this.demZoom);
-    const heights = await this.loadTerrariumTile(this.demZoom, tx, ty);
-
+    // Переводим в меркатор
+    const R = 6378137;
     const tSize = 256;
-    const res0 = 2 * Math.PI * 6378137 / tSize;
-    const origin = 2 * Math.PI * 6378137 / 2;
-    const res = res0 / (2 ** this.demZoom);
-
-    const px = Math.floor((x + origin) / res) % tSize;
-    const py = Math.floor((origin - y) / res) % tSize;
+    const z = this.demZoom;
+    const n = Math.pow(2, z);
+    // Меркаторские координаты
+    const x = R * (lon * Math.PI / 180);
+    const y = R * Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
+    // Глобальные пиксели
+    const origin = 2 * Math.PI * R / 2;
+    const res = (2 * Math.PI * R) / (tSize * n);
+    const pxAbs = (x + origin) / res;
+    const pyAbs = (origin - y) / res;
+    // tileXY
+    const tx = Math.floor(pxAbs / tSize);
+    const ty = Math.floor(pyAbs / tSize);
+    // px/py внутри тайла
+    const px = Math.floor(pxAbs) % tSize;
+    const py = Math.floor(pyAbs) % tSize;
+    const heights = await this.loadTerrariumTile(z, tx, ty);
     const idx = py * tSize + px;
-    
     return heights[idx];
   }
 

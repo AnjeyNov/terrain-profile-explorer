@@ -13,6 +13,7 @@ export class InfoPanel {
       `Długość geogr.: ${lon.toFixed(4)}<br>` +
       `Szerokość geogr.: ${lat.toFixed(4)}<br>` +
       `Wysokość: ${height.toFixed(1)} m`;
+    console.log(`lon: ${lon}, lat: ${lat}, height: ${height}`);
   }
 
   getTerrainType(height) {
