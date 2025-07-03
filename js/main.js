@@ -31,7 +31,7 @@ class TerrainExplorer {
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
     this.europeMapSelector = null;
-    this.mapType = 'osm';
+    this.mapType = 'dem';
 
     this.init();
   }
@@ -153,6 +153,15 @@ class TerrainExplorer {
   }
 
   async loadSelectedRegion() {
+    // Очистка маркеров и графика профиля ДО загрузки новой зоны
+    this.scene.remove('marker_1');
+    this.scene.remove('marker_2');
+    this.scene.remove('profile_line');
+    this.clickPoints = [];
+    if (this.profileChart && typeof this.profileChart.clear === 'function') {
+      this.profileChart.clear();
+    }
+
     const selectedRegion = this.europeMapSelector.getSelectedRegion();
     if (!selectedRegion) {
       alert('Proszę wybrać obszar na mapie');
@@ -204,7 +213,9 @@ class TerrainExplorer {
       texture = await getGoogleSatelliteTexture(bounds, texZoom, 1024, apiKey, session);
     } else if (this.mapType === 'dem') {
       this.infoPanel.showMessage('Ładowanie DEM tiles...', 'info');
-      texture = await this.generateDEMTileTexture(bounds, texZoom, 1024);
+      const { texture, demCanvas } = await this.generateDEMTileTexture(bounds, texZoom, 1024);
+      this.osmTexture = texture;
+      this.terrainMaterial.setOSMMap(this.osmTexture);
     } else if (this.mapType === 'dem_decoded') {
       this.infoPanel.showMessage('Ładowanie decoded DEM...', 'info');
       texture = await this.generateDecodedDEMTexture(bounds, texZoom, 1024);

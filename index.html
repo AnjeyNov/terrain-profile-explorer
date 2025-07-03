@@ -11,19 +11,18 @@
 <body>
 
     <div id="container" style="width:100%;height:100vh"></div>
-    
-    <div id="profile-container"
-         style="position:absolute;left:10px;bottom:10px;width:400px;height:200px;
+
+    <div id="profile-container" style="position:absolute;left:10px;bottom:10px;width:400px;height:200px;
                 background:#fff;border:1px solid #444;border-radius:8px;padding:10px;">
         <canvas id="profile-chart"></canvas>
     </div>
 
     <div id="tilt-indicator"
-         style="position: fixed; top: 10px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 8px 16px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        style="position: fixed; top: 10px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 8px 16px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
         Наклон: 0°</div>
 
     <div id="instructions"
-         style="position: fixed; bottom: 10px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 12px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 300px;">
+        style="position: fixed; bottom: 10px; right: 20px; z-index: 1000; background: rgba(255,255,255,0.9); padding: 12px; border-radius: 8px; font-family: Arial, sans-serif; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 300px;">
         <div style="font-weight: bold; margin-bottom: 8px;">Instrukcje:</div>
         <div>• Kliknij w dwóch punktach na mapie, aby utworzyć profil</div>
         <div>• Użyj myszy do obrotu i powiększania</div>
@@ -31,16 +30,14 @@
         <div>• Kliknij "Wybierz obszar", aby zmienić region</div>
     </div>
 
-    <button id="select-region-btn" 
-            style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; 
+    <button id="select-region-btn" style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 1000; 
                    background: #3bf6d1; color: rgb(0, 0, 0); border: none; padding: 8px 16px; 
                    border-radius: 6px; font-family: Arial, sans-serif; font-size: 14px; 
                    cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         Wybierz obszar
     </button>
 
-    <div id="region-selector-modal" 
-         style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+    <div id="region-selector-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
                 background: rgba(0,0,0,0.8); z-index: 2000; display: flex; 
                 align-items: center; justify-content: center;">
         <div style="background: white; border-radius: 12px; padding: 24px; 
@@ -53,13 +50,11 @@
                 <canvas id="europe-map-canvas" width="700" height="500"></canvas>
             </div>
             <div style="margin-top: 16px; display: flex; gap: 12px; justify-content: flex-end;">
-                <button id="cancel-region" 
-                        style="background: #6b7280; color: white; border: none; padding: 8px 16px; 
+                <button id="cancel-region" style="background: #6b7280; color: white; border: none; padding: 8px 16px; 
                                border-radius: 6px; font-family: Arial, sans-serif; cursor: pointer;">
                     Anuluj
                 </button>
-                <button id="confirm-region" 
-                        style="background: #37b2db; color: rgb(0, 0, 0); border: none; padding: 8px 16px; 
+                <button id="confirm-region" style="background: #37b2db; color: rgb(0, 0, 0); border: none; padding: 8px 16px; 
                                border-radius: 6px; font-family: Arial, sans-serif; cursor: pointer;">
                     Załaduj obszar
                 </button>
@@ -67,14 +62,16 @@
         </div>
     </div>
 
-    <div id="map-type-switcher" style="position:absolute;top:10px;left:10px;z-index:1000;background:rgba(255,255,255,0.8);padding:6px 12px;border-radius:6px;">
-        <label><input type="radio" name="mapType" value="osm" checked> OSM</label>
+    <div id="map-type-switcher"
+        style="position:absolute;top:10px;left:10px;z-index:1000;background:rgba(255,255,255,0.8);padding:6px 12px;border-radius:6px;">
+        <label><input type="radio" name="mapType" value="osm"> OSM</label>
         <label style="margin-left:10px;"><input type="radio" name="mapType" value="satellite"> Satelita</label>
-        <label style="margin-left:10px;"><input type="radio" name="mapType" value="dem"> DEM (tiles)</label>
+        <label style="margin-left:10px;"><input type="radio" name="mapType" value="dem" checked> DEM (tiles)</label>
         <label style="margin-left:10px;"><input type="radio" name="mapType" value="dem_decoded"> DEM (decoded)</label>
     </div>
 
-    <div id="google-key-panel" style="position:absolute;top:50px;left:10px;z-index:1000;background:rgba(255,255,255,0.8);padding:6px 12px;border-radius:6px;">
+    <div id="google-key-panel"
+        style="position:absolute;top:50px;left:10px;z-index:1000;background:rgba(255,255,255,0.8);padding:6px 12px;border-radius:6px;">
         <label for="google-api-key">Google API Key:</label>
         <input type="text" id="google-api-key" style="width:220px;" placeholder="Wklej swój klucz...">
     </div>
