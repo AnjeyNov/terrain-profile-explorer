@@ -17,7 +17,12 @@ export class DEMLoader {
 
     try {
       const url = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
-      const blob = await fetch(url).then(r => r.blob());
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error('DEM tile not found:', url);
+        return new Float32Array(256 * 256);
+      }
+      const blob = await resp.blob();
       const bmp = await createImageBitmap(blob);
       const cvs = new OffscreenCanvas(256, 256);
       const ctx = cvs.getContext('2d');
@@ -77,10 +82,23 @@ export class DEMLoader {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const zPos = pos.getZ(i);
-      const relX = x / size;
+      // Новая схема: вычисляем смещение в метрах относительно центра
+      const relX = -x / size;
       const relZ = zPos / size;
-      const lon = centerLon + relX * zoom;
-      const lat = centerLat + relZ * zoom * (37/55);
+      // Центр в проекции Меркатора
+      const centerMerc = Coordinates.lonLatToMerc(centerLon, centerLat);
+      // Размер области в метрах
+      const deltaLon = zoom;
+      const deltaLat = zoom;
+      const topLeft = Coordinates.lonLatToMerc(centerLon - deltaLon / 2, centerLat + deltaLat / 2);
+      const bottomRight = Coordinates.lonLatToMerc(centerLon + deltaLon / 2, centerLat - deltaLat / 2);
+      const widthMeters = bottomRight.x - topLeft.x;
+      const heightMeters = topLeft.y - bottomRight.y;
+      // Смещение в метрах
+      const mx = topLeft.x + relX * widthMeters;
+      const my = topLeft.y - relZ * heightMeters;
+      // Обратно в lon/lat
+      const { lon, lat } = Coordinates.mercToLonLat(mx, my);
       const { x: tx, y: ty } = Coordinates.mercToTileXY(
         Coordinates.lonLatToMerc(lon, lat).x,
         Coordinates.lonLatToMerc(lon, lat).y,
@@ -116,7 +134,7 @@ export class DEMLoader {
 
   async createHeightProfile(point1, point2, samples = 200) {
     const profile = [];
-    
+
     for (let i = 0; i < samples; i++) {
       const t = i / (samples - 1);
       const lon = MathUtils.lerp(point1.lon, point2.lon, t);
@@ -137,5 +155,54 @@ export class DEMLoader {
       size: this.tileCache.size,
       keys: Array.from(this.tileCache.keys())
     };
+  }
+
+  /**
+   * Применяет DEM-текстуру (canvas) как рельеф к geometry.
+   * @param {THREE.BufferGeometry} geometry
+   * @param {HTMLCanvasElement} demCanvas - Canvas с DEM-тайлами (Terrarium RGB)
+   * @param {number} exaggeration - коэффициент вертикального преувеличения
+   * @param {object} [options] - { testChannel: null|'r'|'g'|'b', flipY: null|true|false, flipX: null|true|false }
+   */
+  async applyDEMTileTextureToGeometry(geometry, demCanvas, exaggeration = 3.0, options = {}) {
+    const pos = geometry.attributes.position;
+    const heightsAttr = new Float32Array(pos.count);
+    const slopesAttr = new Float32Array(pos.count);
+    const size = geometry.parameters.width || 100;
+    const res = geometry.parameters.widthSegments + 1 || 256;
+    const ctx = demCanvas.getContext('2d');
+    const imgData = ctx.getImageData(0, 0, demCanvas.width, demCanvas.height).data;
+    const testChannel = options.testChannel || null; // 'r', 'g', 'b' или null
+    const flipY = options.flipY !== undefined ? options.flipY : true;
+    const flipX = options.flipX !== undefined ? options.flipX : false;
+    for (let i = 0; i < pos.count; i++) {
+      // uv-координаты (от 0 до 1)
+      const ix = i % res;
+      const iz = Math.floor(i / res);
+      let u = ix / (res - 1);
+      let v = iz / (res - 1);
+      if (flipX) u = 1 - u;
+      if (flipY) v = 1 - v;
+      // Пиксельные координаты DEM-канваса
+      const px = Math.floor(u * (demCanvas.width - 1));
+      const py = Math.floor(v * (demCanvas.height - 1));
+      const idx = (py * demCanvas.width + px) * 4;
+      const r = imgData[idx];
+      const g = imgData[idx + 1];
+      const b = imgData[idx + 2];
+      let height;
+      if (testChannel === 'r') height = r / 255;
+      else if (testChannel === 'g') height = g / 255;
+      else if (testChannel === 'b') height = b / 255;
+      else height = (Coordinates.terrariumToMeters(r, g, b) * exaggeration) / 1000;
+      pos.setY(i, height);
+      heightsAttr[i] = height;
+      slopesAttr[i] = 0; // slope можно не считать для теста
+    }
+    pos.needsUpdate = true;
+    geometry.computeVertexNormals();
+    geometry.setAttribute('height', new THREE.BufferAttribute(heightsAttr, 1));
+    geometry.setAttribute('slope', new THREE.BufferAttribute(slopesAttr, 1));
+    return { heights: heightsAttr, slopes: slopesAttr };
   }
 } 

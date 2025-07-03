@@ -22,8 +22,15 @@ export class Coordinates {
       lat: (mz / (size / 2)) * 85
     };
   }
-  
+
   static terrariumToMeters(r, g, b) {
     return (r * 256 + g + b / 256) - 32768;
+  }
+
+  static mercToLonLat(x, y) {
+    const R = 6378137;
+    const lon = (x / R) * 180 / Math.PI;
+    const lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * 180 / Math.PI;
+    return { lon, lat };
   }
 } 

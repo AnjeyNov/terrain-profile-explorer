@@ -24,15 +24,15 @@ class TerrainExplorer {
     this.clickPoints = [];
     this.time = 0;
 
-    this.centerLon = 10; 
+    this.centerLon = 10;
     this.centerLat = 54;
-    this.zoom = 40; 
+    this.zoom = 40;
     this.osmTexture = null;
     this.isDragging = false;
     this.lastMouse = { x: 0, y: 0 };
     this.europeMapSelector = null;
     this.mapType = 'osm';
-    
+
     this.init();
   }
 
@@ -48,13 +48,13 @@ class TerrainExplorer {
   }
 
   setupCore() {
-const container = document.querySelector('#container');
-    
+    const container = document.querySelector('#container');
+
     this.scene = new Scene();
     this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
     this.renderer = new Renderer(container, getConfig('renderer'));
     this.controls = new Controls(this.camera.getCamera(), this.renderer.getRenderer());
-    this.controls.setPanEnabled(false); 
+    this.controls.setPanEnabled(false);
   }
 
   setupTerrain() {
@@ -63,12 +63,12 @@ const container = document.querySelector('#container');
     const normalMaps = this.terrainTextures.getNormalMaps();
 
     this.terrainGeometry = new TerrainGeometry(
-      getConfig('terrain.size'), 
+      getConfig('terrain.size'),
       getConfig('terrain.tileRes')
     );
 
     this.terrainMaterial = new TerrainMaterial(textures, normalMaps, AppConfig.elevation, null);
-    
+
     this.terrainMesh = new THREE.Mesh(
       this.terrainGeometry.getGeometry(),
       this.terrainMaterial.getMaterial()
@@ -86,9 +86,9 @@ const container = document.querySelector('#container');
 
   setupLighting() {
     const lightingConfig = getConfig('lighting');
-    
+
     const directionalLight = new THREE.DirectionalLight(
-      lightingConfig.directional.color, 
+      lightingConfig.directional.color,
       lightingConfig.directional.intensity
     );
     directionalLight.position.set(
@@ -102,7 +102,7 @@ const container = document.querySelector('#container');
     this.scene.add('directionalLight', directionalLight);
 
     const ambientLight = new THREE.AmbientLight(
-      lightingConfig.ambient.color, 
+      lightingConfig.ambient.color,
       lightingConfig.ambient.intensity
     );
     this.scene.add('ambientLight', ambientLight);
@@ -118,15 +118,15 @@ const container = document.querySelector('#container');
 
   setupRegionSelector() {
     this.europeMapSelector = new EuropeMapSelector('europe-map-canvas');
-    
+
     document.getElementById('select-region-btn').addEventListener('click', () => {
       this.showRegionSelector();
     });
-    
+
     document.getElementById('cancel-region').addEventListener('click', () => {
       this.europeMapSelector.hide();
     });
-    
+
     document.getElementById('confirm-region').addEventListener('click', () => {
       this.loadSelectedRegion();
     });
@@ -162,8 +162,8 @@ const container = document.querySelector('#container');
     const bounds = {
       minLon: this.centerLon - this.zoom / 2,
       maxLon: this.centerLon + this.zoom / 2,
-      minLat: this.centerLat - this.zoom / 2 * (37/55),
-      maxLat: this.centerLat + this.zoom / 2 * (37/55)
+      minLat: this.centerLat - this.zoom / 2 * (37 / 55),
+      maxLat: this.centerLat + this.zoom / 2 * (37 / 55)
     };
     const texZoom = 8;
     let texture = null;
@@ -215,13 +215,23 @@ const container = document.querySelector('#container');
     this.centerLon = Math.max(-25, Math.min(45, this.centerLon));
     this.centerLat = Math.max(35, Math.min(72, this.centerLat));
     this.zoom = Math.max(2, Math.min(70, this.zoom));
-    await this.demLoader.applyDEMToGeometry(
+    // Получаем bounds и параметры
+    const bounds = {
+      minLon: this.centerLon - this.zoom / 2,
+      maxLon: this.centerLon + this.zoom / 2,
+      minLat: this.centerLat - this.zoom / 2 * (37 / 55),
+      maxLat: this.centerLat + this.zoom / 2 * (37 / 55)
+    };
+    const texZoom = 8;
+    const size = 1024;
+    // Генерируем DEM-текстуру и canvas
+    const { demCanvas } = await this.generateDEMTileTexture(bounds, texZoom, size);
+    // Применяем рельеф по DEM-канвасу
+    await this.demLoader.applyDEMTileTextureToGeometry(
       this.terrainGeometry.getGeometry(),
-      this.centerLon,
-      this.centerLat,
-      this.zoom,
-      getConfig('terrain.size'),
-      getConfig('terrain.exaggeration')
+      demCanvas,
+      getConfig('terrain.exaggeration'),
+      { flipY: true, flipX: true, testChannel: null }
     );
   }
 
@@ -232,8 +242,8 @@ const container = document.querySelector('#container');
       const bounds = {
         minLon: this.centerLon - this.zoom / 2,
         maxLon: this.centerLon + this.zoom / 2,
-        minLat: this.centerLat - this.zoom / 2 * (37/55),
-        maxLat: this.centerLat + this.zoom / 2 * (37/55)
+        minLat: this.centerLat - this.zoom / 2 * (37 / 55),
+        maxLat: this.centerLat + this.zoom / 2 * (37 / 55)
       };
       const size = getConfig('terrain.size');
       const u = 1.0 - (mx / size + 0.5);
@@ -259,7 +269,7 @@ const container = document.querySelector('#container');
     const relX = mx / getConfig('terrain.size');
     const relZ = mz / getConfig('terrain.size');
     const lon = this.centerLon + relX * this.zoom;
-    const lat = this.centerLat + relZ * this.zoom * (37/55);
+    const lat = this.centerLat + relZ * this.zoom * (37 / 55);
 
     if (this.clickPoints.length === 2) {
       this.scene.remove('marker_1');
@@ -283,7 +293,7 @@ const container = document.querySelector('#container');
         for (let i = 0; i < pos.count; i++) {
           const dx = pos.getX(i) - mx;
           const dz = pos.getZ(i) - mz;
-          const dist = dx*dx + dz*dz;
+          const dist = dx * dx + dz * dz;
           if (dist < minDist) { minDist = dist; minIdx = i; }
         }
         return pos.getY(minIdx);
@@ -307,13 +317,13 @@ const container = document.querySelector('#container');
   getHitPoint(ev) {
     const canvas = this.renderer.getCanvas();
     const mouse = new THREE.Vector2();
-    
+
     mouse.x = (ev.clientX / canvas.clientWidth) * 2 - 1;
     mouse.y = -(ev.clientY / canvas.clientHeight) * 2 + 1;
-    
+
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, this.camera.getCamera());
-    
+
     return raycaster.intersectObject(this.terrainMesh)[0];
   }
 
@@ -324,7 +334,7 @@ const container = document.querySelector('#container');
         this.clickPoints[1],
         getConfig('profile.samples')
       );
-      
+
       this.profileChart.drawProfile(profile);
       this.infoPanel.updateProfileInfo(this.clickPoints[0], this.clickPoints[1]);
     } catch (error) {
@@ -361,7 +371,7 @@ const container = document.querySelector('#container');
     function lonLatToTileXY(lon, lat, z) {
       const n = Math.pow(2, z);
       const xtile = Math.floor((lon + 180) / 360 * n);
-      const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n);
+      const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
       return { x: xtile, y: ytile };
     }
     const topLeft = lonLatToTileXY(bounds.minLon, bounds.maxLat, zoom);
@@ -400,7 +410,7 @@ const container = document.querySelector('#container');
     const texture = new THREE.CanvasTexture(outCanvas);
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.needsUpdate = true;
-    return texture;
+    return { texture, demCanvas: outCanvas };
   }
 
   // Генерация decoded DEM tiles как цветной карты высот
@@ -409,7 +419,7 @@ const container = document.querySelector('#container');
     function lonLatToTileXY(lon, lat, z) {
       const n = Math.pow(2, z);
       const xtile = Math.floor((lon + 180) / 360 * n);
-      const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI/180) + 1/Math.cos(lat * Math.PI/180)) / Math.PI) / 2 * n);
+      const ytile = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
       return { x: xtile, y: ytile };
     }
     const topLeft = lonLatToTileXY(bounds.minLon, bounds.maxLat, zoom);
@@ -451,11 +461,11 @@ const container = document.querySelector('#container');
     // Перекрашиваем каждый пиксель в зависимости от высоты
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
-      const g = data[i+1];
-      const b = data[i+2];
+      const g = data[i + 1];
+      const b = data[i + 2];
       // Формула Terrarium
       const h = (r * 256 + g + b / 256) - 32768;
-      let color = [0,0,0];
+      let color = [0, 0, 0];
       if (h <= 0) {
         // Глубина — синий
         color = [30, 80, 200];
@@ -470,11 +480,11 @@ const container = document.querySelector('#container');
         color = [180, 120, 60];
       } else {
         // Снег — белый
-        color = [255,255,255];
+        color = [255, 255, 255];
       }
       data[i] = color[0];
-      data[i+1] = color[1];
-      data[i+2] = color[2];
+      data[i + 1] = color[1];
+      data[i + 2] = color[2];
     }
     ctx.putImageData(imgData, 0, 0);
 
