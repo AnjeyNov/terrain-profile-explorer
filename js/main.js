@@ -235,10 +235,10 @@ class TerrainExplorer {
     );
   }
 
-  onMouseMove(ev) {
+  async onMouseMove(ev) {
     const hit = this.getHitPoint(ev);
     if (hit) {
-      const { x: mx, z: mz, y: my } = hit.point;
+      const { x: mx, z: mz } = hit.point;
       const bounds = {
         minLon: this.centerLon - this.zoom / 2,
         maxLon: this.centerLon + this.zoom / 2,
@@ -250,7 +250,8 @@ class TerrainExplorer {
       const v = 1.0 - (mz / size + 0.5);
       const lon = bounds.minLon + u * (bounds.maxLon - bounds.minLon);
       const lat = bounds.minLat + v * (bounds.maxLat - bounds.minLat);
-      const height = my * 1000;
+      // Новый способ: высота из DEM
+      const height = await this.demLoader.heightAtLonLat(lon, lat);
       this.infoPanel.updateTerrainInfo(hit.point, lon, lat, height);
     } else {
       this.infoPanel.clear();
@@ -286,30 +287,6 @@ class TerrainExplorer {
 
     if (this.clickPoints.length === 2) {
       await this.updateTerrain();
-      const getY = (mx, mz) => {
-        const geom = this.terrainGeometry.getGeometry();
-        const pos = geom.attributes.position;
-        let minDist = Infinity, minIdx = 0;
-        for (let i = 0; i < pos.count; i++) {
-          const dx = pos.getX(i) - mx;
-          const dz = pos.getZ(i) - mz;
-          const dist = dx * dx + dz * dz;
-          if (dist < minDist) { minDist = dist; minIdx = i; }
-        }
-        return pos.getY(minIdx);
-      };
-      const p1 = this.clickPoints[0];
-      const p2 = this.clickPoints[1];
-      const y1 = getY(p1.mx, p1.mz);
-      const y2 = getY(p2.mx, p2.mz);
-      const v1 = new THREE.Vector3(p1.mx, y1, p1.mz);
-      const v2 = new THREE.Vector3(p2.mx, y2, p2.mz);
-      const geometry = new THREE.BufferGeometry().setFromPoints([v1, v2]);
-      const material = new THREE.LineBasicMaterial({ color: 0xff2222, linewidth: 12 });
-      material.depthTest = false;
-      const line = new THREE.Line(geometry, material);
-      line.renderOrder = 999;
-      this.scene.add('profile_line', line);
       await this.createProfile();
     }
   }
@@ -329,11 +306,39 @@ class TerrainExplorer {
 
   async createProfile() {
     try {
-      const profile = await this.demLoader.createHeightProfile(
-        this.clickPoints[0],
-        this.clickPoints[1],
-        getConfig('profile.samples')
-      );
+      // Новый способ: профиль по mesh (geometry)
+      const geom = this.terrainGeometry.getGeometry();
+      const pos = geom.attributes.position;
+      const samples = getConfig('profile.samples');
+      const profile = [];
+      const mx0 = this.clickPoints[0].mx;
+      const mx1 = this.clickPoints[1].mx;
+      const mz0 = this.clickPoints[0].mz;
+      const mz1 = this.clickPoints[1].mz;
+      for (let i = 0; i < samples; i++) {
+        const t = i / (samples - 1);
+        // Отражаем обе координаты, чтобы профиль совпадал с рельефом после flipX/flipY
+        const mx = -MathUtils.lerp(mx0, mx1, t);
+        const mz = -MathUtils.lerp(mz0, mz1, t);
+        // Найти ближайшую вершину
+        let minDist = Infinity, minIdx = 0;
+        for (let j = 0; j < pos.count; j++) {
+          const dx = pos.getX(j) - mx;
+          const dz = pos.getZ(j) - mz;
+          const dist = dx * dx + dz * dz;
+          if (dist < minDist) { minDist = dist; minIdx = j; }
+        }
+        profile.push(pos.getY(minIdx) * 1000); // mesh в километрах, домножаем на 1000
+      }
+
+      // Выводим координаты и высоты профиля в консоль
+      console.log('Profile points (mesh heights):');
+      profile.forEach((h, i) => {
+        const t = i / (profile.length - 1);
+        const mx = MathUtils.lerp(this.clickPoints[0].mx, this.clickPoints[1].mx, t);
+        const mz = MathUtils.lerp(this.clickPoints[0].mz, this.clickPoints[1].mz, t);
+        console.log(`mx: ${mx}, mz: ${mz}, height: ${h}`);
+      });
 
       this.profileChart.drawProfile(profile);
       this.infoPanel.updateProfileInfo(this.clickPoints[0], this.clickPoints[1]);
