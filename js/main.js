@@ -112,8 +112,13 @@ class TerrainExplorer {
     const canvas = this.renderer.getCanvas();
     canvas.addEventListener('mousemove', (ev) => this.onMouseMove(ev));
     canvas.addEventListener('wheel', (ev) => this.onWheel(ev));
-    canvas.addEventListener('click', (ev) => this.onClick(ev));
+    // canvas.addEventListener('click', (ev) => this.onClick(ev));
     window.addEventListener('resize', () => this.onResize());
+
+    // Добавляем обработчик двойного клика для выбора точек профиля
+    canvas.addEventListener('dblclick', async (ev) => {
+      await this.onClick(ev);
+    });
   }
 
   setupRegionSelector() {
