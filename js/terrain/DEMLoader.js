@@ -80,7 +80,7 @@ export class DEMLoader {
       const relX = x / size;
       const relZ = zPos / size;
       const lon = centerLon + relX * zoom;
-      const lat = centerLat + relZ * zoom * (37/55);
+      const lat = centerLat + relZ * zoom;
       const { x: tx, y: ty } = Coordinates.mercToTileXY(
         Coordinates.lonLatToMerc(lon, lat).x,
         Coordinates.lonLatToMerc(lon, lat).y,
@@ -119,7 +119,7 @@ export class DEMLoader {
     
     for (let i = 0; i < samples; i++) {
       const t = i / (samples - 1);
-      const lon = MathUtils.lerp(point1.lon, point2.lon, t);
+      const lon = MathUtils.lerp(point2.lon, point1.lon, t);
       const lat = MathUtils.lerp(point1.lat, point2.lat, t);
       const height = await this.heightAtLonLat(lon, lat);
       profile.push(height);

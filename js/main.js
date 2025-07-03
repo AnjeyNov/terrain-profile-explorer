@@ -170,6 +170,9 @@ const container = document.querySelector('#container');
     if (this.mapType === 'osm') {
       this.infoPanel.showMessage('Ładowanie mapy OSM...', 'info');
       texture = await getOSMTexture(bounds, texZoom, 1024);
+      this.osmTexture = texture;
+      this.terrainMaterial.setOSMMap(this.osmTexture);
+      this.terrainMesh.material = this.terrainMaterial.getMaterial();
     } else if (this.mapType === 'satellite') {
       this.infoPanel.showMessage('Ładowanie mapy satelitarnej Google...', 'info');
       const apiKey = document.getElementById('google-api-key').value.trim();
@@ -197,16 +200,28 @@ const container = document.querySelector('#container');
         return;
       }
       texture = await getGoogleSatelliteTexture(bounds, texZoom, 1024, apiKey, session);
+      this.osmTexture = texture;
+      this.terrainMaterial.setOSMMap(this.osmTexture);
+      this.terrainMesh.material = this.terrainMaterial.getMaterial();
     } else if (this.mapType === 'dem') {
       this.infoPanel.showMessage('Ładowanie DEM tiles...', 'info');
       texture = await this.generateDEMTileTexture(bounds, texZoom, 1024);
+      this.osmTexture = texture;
+      this.terrainMaterial.setOSMMap(this.osmTexture);
+      this.terrainMesh.material = this.terrainMaterial.getMaterial();
     } else if (this.mapType === 'dem_decoded') {
       this.infoPanel.showMessage('Ładowanie decoded DEM...', 'info');
       texture = await this.generateDecodedDEMTexture(bounds, texZoom, 1024);
+      this.osmTexture = texture;
+      this.terrainMaterial.setOSMMap(this.osmTexture);
+      this.terrainMesh.material = this.terrainMaterial.getMaterial();
+    } else if (this.mapType === 'relief') {
+      this.infoPanel.showMessage('Отображение рельефа...', 'info');
+      this.terrainMesh.material = this.createReliefMaterial();
     }
-    this.osmTexture = texture;
-    this.terrainMaterial.setOSMMap(this.osmTexture);
-    this.infoPanel.clear();
+    if (this.mapType !== 'relief') {
+      this.infoPanel.clear();
+    }
     await this.updateTerrain();
     this.animate();
   }
@@ -438,7 +453,7 @@ const container = document.querySelector('#container');
     canvas.height = tilesY * tileSize;
     const ctx = canvas.getContext('2d');
 
-    // Рисуем DEM-тайлы на canvas
+    // Рисуем DEM-тайлы на canvas (сверху вниз, как OSM)
     for (let x = 0; x < tilesX; x++) {
       for (let y = 0; y < tilesY; y++) {
         if (demTiles[x][y]) ctx.drawImage(demTiles[x][y], x * tileSize, y * tileSize);
@@ -478,7 +493,7 @@ const container = document.querySelector('#container');
     }
     ctx.putImageData(imgData, 0, 0);
 
-    // Масштабируем под нужный размер
+    // Масштабируем под нужный размер (сверху вниз, как OSM)
     const outCanvas = document.createElement('canvas');
     outCanvas.width = size;
     outCanvas.height = size;
@@ -489,6 +504,36 @@ const container = document.querySelector('#container');
     texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
     texture.needsUpdate = true;
     return texture;
+  }
+
+  // Материал для рельефа (градиент по высоте)
+  createReliefMaterial() {
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        minHeight: { value: -100 },
+        maxHeight: { value: 3000 }
+      },
+      vertexShader: `
+        attribute float height;
+        varying float vHeight;
+        void main() {
+          vHeight = height;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying float vHeight;
+        uniform float minHeight;
+        uniform float maxHeight;
+        void main() {
+          float h = clamp((vHeight * 1000.0 - minHeight) / (maxHeight - minHeight), 0.0, 1.0);
+          vec3 color = mix(vec3(0.1,0.3,0.8), vec3(0.2,0.8,0.2), smoothstep(0.0,0.3,h)); // синий→зелёный
+          color = mix(color, vec3(0.7,0.5,0.2), smoothstep(0.3,0.7,h)); // зелёный→коричневый
+          color = mix(color, vec3(1.0,1.0,1.0), smoothstep(0.7,1.0,h)); // коричневый→белый
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `
+    });
   }
 }
 
