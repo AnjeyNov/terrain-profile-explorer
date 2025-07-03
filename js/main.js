@@ -218,6 +218,11 @@ const container = document.querySelector('#container');
     } else if (this.mapType === 'relief') {
       this.infoPanel.showMessage('Отображение рельефа...', 'info');
       this.terrainMesh.material = this.createReliefMaterial();
+      this.terrainMesh.scale.x = -1;
+      this.terrainMesh.updateMatrix();
+    } else {
+      this.terrainMesh.scale.x = 1;
+      this.terrainMesh.updateMatrix();
     }
     if (this.mapType !== 'relief') {
       this.infoPanel.clear();

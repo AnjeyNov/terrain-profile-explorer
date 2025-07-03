@@ -81,22 +81,28 @@ export class DEMLoader {
       const relZ = zPos / size;
       const lon = centerLon + relX * zoom;
       const lat = centerLat + relZ * zoom;
-      const { x: tx, y: ty } = Coordinates.mercToTileXY(
-        Coordinates.lonLatToMerc(lon, lat).x,
-        Coordinates.lonLatToMerc(lon, lat).y,
-        z
-      );
-      const tileKey = `${z}/${tx}/${ty}`;
+      // --- Новый способ: глобальные пиксели, tileXY, px/py ---
+      const R = 6378137;
+      const tSize = 256;
+      const zDEM = this.demZoom;
+      const n = Math.pow(2, zDEM);
+      const merc = Coordinates.lonLatToMerc(lon, lat);
+      const origin = 2 * Math.PI * R / 2;
+      const res = (2 * Math.PI * R) / (tSize * n);
+      const pxAbs = (merc.x + origin) / res;
+      const pyAbs = (origin - merc.y) / res;
+      const tx = Math.floor(pxAbs / tSize);
+      const ty = Math.floor(pyAbs / tSize);
+      const tileKey = `${zDEM}/${tx}/${ty}`;
       let heights;
       if (localTileCache.has(tileKey)) {
         heights = localTileCache.get(tileKey);
       } else {
-        heights = await this.loadTerrariumTile(z, tx, ty);
+        heights = await this.loadTerrariumTile(zDEM, tx, ty);
         localTileCache.set(tileKey, heights);
       }
-      const { x: mxMerc, y: myMerc } = Coordinates.lonLatToMerc(lon, lat);
-      const px = Math.floor((mxMerc + origin) / res) % tSize;
-      const py = Math.floor((origin - myMerc) / res) % tSize;
+      const px = Math.floor(pxAbs) % tSize;
+      const py = Math.floor(pyAbs) % tSize;
       const idx = py * tSize + px;
       const h = heights[idx];
       const height = (h * exaggeration) / 1000;
