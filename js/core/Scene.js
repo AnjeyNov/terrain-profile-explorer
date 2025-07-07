@@ -8,7 +8,7 @@ export class Scene {
   }
 
   init() {
-    this.scene.background = new THREE.Color(0x87CEEB); 
+    this.scene.background = new THREE.Color(0x87CEEB);
     this.scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
   }
 
@@ -33,18 +33,7 @@ export class Scene {
     return this.scene;
   }
 
-  clear() {
-    this.objects.forEach((object, name) => {
-      this.scene.remove(object);
-    });
-    this.objects.clear();
-  }
-
   getAllObjects() {
     return Array.from(this.objects.values());
-  }
-
-  update() {
-
   }
 } 

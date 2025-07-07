@@ -86,11 +86,11 @@ export class TerrainMaterial {
             color = texture2D(waterTexture, vUv + vec2(sin(time * 0.5) * 0.01, cos(time * 0.3) * 0.01));
             normal = texture2D(waterNormalMap, vUv + vec2(sin(time * 0.2) * 0.02, cos(time * 0.4) * 0.02)).rgb * 2.0 - 1.0;
             reflection = 0.8;
-          } else if (vHeight <= waterLevel + 50.0) {
+          } else if (vHeight <= waterLevel + 0.0050) {
             color = texture2D(sandTexture, vUv);
             normal = texture2D(sandNormalMap, vUv).rgb * 2.0 - 1.0;
             reflection = 0.1;
-          } else if (vSlope > slopeThreshold) {
+          } else if (vSlope > slopeThreshold || (vHeight > mountainLevel && vHeight < snowLevel)) {
             color = texture2D(rockTexture, vUv);
             normal = texture2D(rockNormalMap, vUv).rgb * 2.0 - 1.0;
             reflection = 0.05;

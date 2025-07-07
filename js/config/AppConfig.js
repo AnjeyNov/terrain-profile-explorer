@@ -1,42 +1,43 @@
 export const AppConfig = {
   terrain: {
-    size: 100,              
-    tileRes: 256,           
-    demZoom: 7,             
-    exaggeration: 3.0,      
+    size: 100,
+    tileRes: 256,
+    demZoom: 7,
+    exaggeration: 3.0,
   },
 
   profile: {
-    samples: 200,          
+    samples: 200,
   },
 
   elevation: {
-    waterLevel: 1.5,          
-    mountainLevel: 1000,    
-    snowLevel: 2500,       
-    slopeThreshold: 0.3    
+    waterLevel: 1.5,
+    grassLevel: 100,
+    mountainLevel: 1000,
+    snowLevel: 2500,
+    slopeThreshold: 0.3
   },
 
   camera: {
-    fov: 45,                
-    near: 0.1,              
-    far: 1000,             
+    fov: 45,
+    near: 0.1,
+    far: 1000,
     initialPosition: { x: 0, y: 50, z: 100 }
   },
 
   renderer: {
-    antialias: true,        
-    shadowMapSize: 2048,   
+    antialias: true,
+    shadowMapSize: 2048,
     pixelRatio: window.devicePixelRatio
   },
 
   controls: {
-    enableDamping: true,    
-    dampingFactor: 0.05,    
-    minDistance: 10,        
-    maxDistance: 500,       
-    minPolarAngle: 0,       
-    maxPolarAngle: Math.PI * 0.7 
+    enableDamping: true,
+    dampingFactor: 0.05,
+    minDistance: 10,
+    maxDistance: 500,
+    minPolarAngle: 0,
+    maxPolarAngle: Math.PI * 0.7
   },
 
   lighting: {
@@ -57,7 +58,7 @@ export const AppConfig = {
       height: 160
     },
     infoPanel: {
-      updateInterval: 100 
+      updateInterval: 100
     }
   },
 
@@ -68,8 +69,8 @@ export const AppConfig = {
   },
 
   animation: {
-    waterSpeed: 0.5,       
-    frameRate: 60      
+    waterSpeed: 0.5,
+    frameRate: 60
   }
 };
 

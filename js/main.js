@@ -9,7 +9,7 @@ import { Controls } from './core/Controls.js';
 
 import { TerrainGeometry } from './terrain/TerrainGeometry.js';
 import { TerrainMaterial } from './terrain/TerrainMaterial.js';
-import { TerrainTextures, getGoogleSatelliteTexture, getOSMTexture } from './terrain/TerrainTextures.js';
+import { TerrainTextures, getMapTexture } from './terrain/TerrainTextures.js';
 import { DEMLoader } from './terrain/DEMLoader.js';
 
 import { ProfileChart } from './ui/ProfileChart.js';
@@ -54,7 +54,6 @@ class TerrainExplorer {
     this.camera = new Camera(container, getConfig('camera.fov'), getConfig('camera.near'), getConfig('camera.far'));
     this.renderer = new Renderer(container, getConfig('renderer'));
     this.controls = new Controls(this.camera.getCamera(), this.renderer.getRenderer());
-    this.controls.setPanEnabled(false);
   }
 
   setupTerrain() {
@@ -183,7 +182,7 @@ class TerrainExplorer {
     let texture = null;
     if (this.mapType === 'osm') {
       this.infoPanel.showMessage('Ładowanie mapy OSM...', 'info');
-      texture = await getOSMTexture(bounds, texZoom, 1024);
+      texture = await getMapTexture({ bounds, zoom: texZoom, size: 1024, source: 'osm', lineWidth: 30 });
     } else if (this.mapType === 'satellite') {
       this.infoPanel.showMessage('Ładowanie mapy satelitarnej Google...', 'info');
       const apiKey = document.getElementById('google-api-key').value.trim();
@@ -210,7 +209,7 @@ class TerrainExplorer {
         this.infoPanel.showMessage('Błąd uzyskania sesji Google Tiles', 'error');
         return;
       }
-      texture = await getGoogleSatelliteTexture(bounds, texZoom, 1024, apiKey, session);
+      texture = await getMapTexture({ bounds, zoom: texZoom, size: 1024, source: 'google', apiKey, session, lineWidth: 3 });
     } else if (this.mapType === 'dem') {
       this.infoPanel.showMessage('Ładowanie DEM tiles...', 'info');
       const { texture, demCanvas } = await this.generateDEMTileTexture(bounds, texZoom, 1024);

@@ -22,7 +22,7 @@ export class Renderer {
   setupRenderer() {
     this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
     this.renderer.setPixelRatio(window.devicePixelRatio);
-    
+
 
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -30,7 +30,7 @@ export class Renderer {
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
-    
+
 
     this.container.appendChild(this.renderer.domElement);
   }
@@ -50,30 +50,11 @@ export class Renderer {
   resize() {
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
-    
+
     this.renderer.setSize(width, height);
   }
 
   setSize(width, height) {
     this.renderer.setSize(width, height);
-  }
-
-  getSize() {
-    return {
-      width: this.renderer.domElement.width,
-      height: this.renderer.domElement.height
-    };
-  }
-
-  setShadowMapEnabled(enabled) {
-    this.renderer.shadowMap.enabled = enabled;
-  }
-
-  setShadowMapType(type) {
-    this.renderer.shadowMap.type = type;
-  }
-
-  dispose() {
-    this.renderer.dispose();
   }
 } 
